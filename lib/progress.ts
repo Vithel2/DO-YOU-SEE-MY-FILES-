@@ -51,3 +51,33 @@ export function setMaxUnlockedLevel(level: number) {
     // storage unavailable — ignore
   }
 }
+
+/* --- Secret dev code (never mentioned anywhere in the game UI) --- */
+
+const DEV_KEY = 'avd-dev'
+// stored obfuscated so it's not trivially readable in the source
+const SECRET = ['V', 'M', 'C', 'T'].join('')
+
+export function isDevMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(DEV_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Try to apply an entered code. Returns true if the code was accepted.
+ * The dev code unlocks all levels and gives a pile of money in battles.
+ */
+export function tryApplyCode(code: string, totalLevels: number): boolean {
+  if (code.trim().toUpperCase() !== SECRET) return false
+  try {
+    window.localStorage.setItem(DEV_KEY, '1')
+    window.localStorage.setItem(LEVEL_KEY, String(totalLevels))
+  } catch {
+    // storage unavailable — ignore
+  }
+  return true
+}

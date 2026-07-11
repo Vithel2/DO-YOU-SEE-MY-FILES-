@@ -68,3 +68,53 @@ body {
 .super-glow {
   animation: super-glow 1.2s ease-in-out infinite;
 }
+
+/* --- Level 6 chaos --- */
+
+@keyframes chaos-pulse {
+  0%,
+  100% {
+    background: rgba(214, 69, 69, 0.12);
+  }
+  46% {
+    background: rgba(214, 69, 69, 0.28);
+  }
+  50% {
+    /* lightning-like red flash */
+    background: rgba(255, 60, 40, 0.45);
+  }
+  54% {
+    background: rgba(214, 69, 69, 0.28);
+  }
+}
+
+.chaos-overlay {
+  animation: chaos-pulse 6s ease-in-out infinite;
+}
+
+@keyframes chaos-shake {
+  0%,
+  88%,
+  100% {
+    transform: translate(0, 0);
+  }
+  90% {
+    transform: translate(-3px, 2px);
+  }
+  92% {
+    transform: translate(3px, -2px);
+  }
+  94% {
+    transform: translate(-2px, -2px);
+  }
+  96% {
+    transform: translate(2px, 2px);
+  }
+  98% {
+    transform: translate(-1px, 1px);
+  }
+}
+
+.chaos-shake {
+  animation: chaos-shake 5s linear infinite;
+}

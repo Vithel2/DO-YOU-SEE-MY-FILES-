@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   AD_COOLDOWN_MS,
   AD_REWARD,
@@ -19,7 +20,7 @@ import {
   type LevelConfig,
   type UnitType,
 } from '@/lib/game-data'
-import { markCharacterMet } from '@/lib/progress'
+import { isDevMode, markCharacterMet } from '@/lib/progress'
 import { playDeathSound, playSound } from '@/lib/sound'
 import { AdModal } from './ad-modal'
 import { TutorialOverlay } from './tutorial-overlay'
@@ -105,7 +106,7 @@ export function Battlefield({
   const config = LEVELS.find((l) => l.level === level) ?? LEVELS[0]
 
   const stateRef = useRef<GameState>({
-    currency: 10,
+    currency: isDevMode() ? 9999 : 10,
     playerBaseHp: config.playerBaseHp,
     enemyBaseHp: config.enemyBaseHp,
     fighters: [],
@@ -152,9 +153,9 @@ export function Battlefield({
       const s = stateRef.current
 
       if (!pausedRef.current && s.result === 'playing') {
-        // --- spawn cans ---
+        // --- spawn cans (faster in chaos so the player can keep up) ---
         canSpawnTimerRef.current += dt * 1000
-        if (canSpawnTimerRef.current >= CAN_SPAWN_INTERVAL_MS) {
+        if (canSpawnTimerRef.current >= CAN_SPAWN_INTERVAL_MS * (config.chaos ? 0.55 : 1)) {
           canSpawnTimerRef.current = 0
           s.cans.push({
             uid: nextUid(),
@@ -176,8 +177,20 @@ export function Battlefield({
         enemySpawnTimerRef.current += dt
         if (enemySpawnTimerRef.current >= config.spawnIntervalMs / 1000) {
           enemySpawnTimerRef.current = 0
-          const type = pickEnemy(config)
+          let type = pickEnemy(config)
           markCharacterMet(type.id)
+          if (config.chaos) {
+            // Level 6 madness: everyone is stronger, and sometimes a GIANT comes out
+            const giant = Math.random() < 0.18
+            type = {
+              ...type,
+              name: giant ? `ГИГАНТ ${type.name}` : type.name,
+              hp: Math.round(type.hp * (giant ? 3.5 : 1.4)),
+              damage: Math.round(type.damage * (giant ? 2.5 : 1.3)),
+              speed: giant ? type.speed * 0.8 : type.speed,
+              size: giant ? Math.round(type.size * 1.9) : type.size,
+            }
+          }
           s.fighters.push({
             uid: nextUid(),
             type,
@@ -431,9 +444,16 @@ export function Battlefield({
   return (
     <div
       ref={fieldRef}
-      className="relative h-full w-full select-none overflow-hidden bg-cover bg-center"
+      className={`relative h-full w-full select-none overflow-hidden bg-cover bg-center ${
+        config.chaos ? 'chaos-shake' : ''
+      }`}
       style={{ backgroundImage: "url('/assets/background.png')", touchAction: 'none' }}
     >
+      {/* Level 6 chaos: pulsing red sky */}
+      {config.chaos && (
+        <div className="chaos-overlay pointer-events-none absolute inset-0 z-10" aria-hidden="true" />
+      )}
+
       {/* Top bar */}
       <div className="absolute left-0 right-0 top-0 z-30 flex items-start justify-between gap-2 p-2 md:p-3">
         <button
@@ -654,15 +674,20 @@ export function Battlefield({
         </div>
       </div>
 
-      {/* Dragged pill following the pointer */}
-      {pillDrag && (
-        <img
-          src="/assets/pill.png"
-          alt=""
-          className="super-glow pointer-events-none fixed z-50 h-16 w-16 -translate-x-1/2 -translate-y-1/2"
-          style={{ left: pillDrag.x, top: pillDrag.y }}
-        />
-      )}
+      {/* Dragged pill following the pointer — rendered in a portal to
+          document.body because the scaled game stage creates a transform
+          containing block that would break position:fixed coordinates */}
+      {pillDrag &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <img
+            src="/assets/pill.png"
+            alt=""
+            className="super-glow pointer-events-none fixed z-50 h-16 w-16 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: pillDrag.x, top: pillDrag.y }}
+          />,
+          document.body,
+        )}
 
       {/* Drag hint */}
       {pillDrag && (

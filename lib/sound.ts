@@ -8,6 +8,7 @@
  *   buy-arseniy.mp3 — покупка/призыв Арсения (и супер-версии)
  *   death1.mp3      — смерть бойца (вариант 1)
  *   death2.mp3      — смерть бойца (вариант 2)
+ *   win.mp3         — победа на уровне
  * Missing files fail silently so the game never breaks without them.
  */
 
@@ -19,7 +20,7 @@ const SOUND_FILES = {
   death1: 'death1',
   death2: 'death2',
   explosion: 'death2',
-  victory: 'buy-arseniy',
+  victory: 'win',
   defeat: 'death1',
 } as const
 
@@ -27,10 +28,33 @@ export type SoundName = keyof typeof SOUND_FILES
 
 export type MusicName = 'menu-music' | 'battle-music'
 
+const MUSIC_KEY = 'avd-music-off'
+const SFX_KEY = 'avd-sfx-off'
+
 const knownMissing = new Set<string>()
 let currentMusic: HTMLAudioElement | null = null
 let musicStarted = false
-let muted = false
+
+function readFlag(key: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(key) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeFlag(key: string, value: boolean) {
+  try {
+    if (value) localStorage.setItem(key, '1')
+    else localStorage.removeItem(key)
+  } catch {
+    // ignore
+  }
+}
+
+let musicMuted = readFlag(MUSIC_KEY)
+let sfxMuted = readFlag(SFX_KEY)
 
 function makeAudio(file: string): HTMLAudioElement | null {
   if (typeof window === 'undefined' || knownMissing.has(file)) return null
@@ -41,7 +65,7 @@ function makeAudio(file: string): HTMLAudioElement | null {
 
 /** Play a one-shot sound effect. Safe to call even if the file is missing. */
 export function playSound(name: SoundName, volume = 0.7) {
-  if (muted) return
+  if (sfxMuted) return
   const file = SOUND_FILES[name]
   const audio = makeAudio(file)
   if (!audio) return
@@ -59,7 +83,7 @@ export function playDeathSound(volume = 0.7) {
  * The MusicName argument is kept for compatibility — both map to music.mp3.
  */
 export function playMusic(_name?: MusicName, volume = 0.3) {
-  if (typeof window === 'undefined' || muted) return
+  if (typeof window === 'undefined' || musicMuted) return
   if (musicStarted && currentMusic && !currentMusic.paused) return
   const audio = currentMusic ?? makeAudio('music')
   if (!audio) return
@@ -84,15 +108,28 @@ export function stopMusic() {
   musicStarted = false
 }
 
-export function setMuted(value: boolean) {
-  muted = value
-  if (muted) {
+/** Turn background music on/off (persisted on the device). */
+export function setMusicMuted(value: boolean) {
+  musicMuted = value
+  writeFlag(MUSIC_KEY, value)
+  if (value) {
     currentMusic?.pause()
-  } else if (currentMusic) {
-    currentMusic.play().catch(() => {})
+    musicStarted = false
+  } else {
+    playMusic()
   }
 }
 
-export function isMuted() {
-  return muted
+export function isMusicMuted() {
+  return musicMuted
+}
+
+/** Turn sound effects on/off (persisted on the device). */
+export function setSfxMuted(value: boolean) {
+  sfxMuted = value
+  writeFlag(SFX_KEY, value)
+}
+
+export function isSfxMuted() {
+  return sfxMuted
 }

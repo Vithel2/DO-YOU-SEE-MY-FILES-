@@ -7,10 +7,13 @@ import { playMusic, playSound } from '@/lib/sound'
 import { Battlefield } from './battlefield'
 import { CharactersScreen } from './characters-screen'
 import { EndScreen } from './end-screen'
+import { FinalEnding } from './final-ending'
+import { GameStage } from './game-stage'
 import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
+import { SettingsScreen } from './settings-screen'
 
-type Screen = 'menu' | 'levels' | 'characters' | 'playing' | 'ended'
+type Screen = 'menu' | 'levels' | 'characters' | 'settings' | 'playing' | 'ended' | 'finale'
 
 export function Game() {
   const [screen, setScreen] = useState<Screen>('menu')
@@ -56,53 +59,69 @@ export function Game() {
         setMaxLevel((m) => Math.max(m, next))
         setMaxUnlockedLevel(next)
       }
-      setScreen('ended')
+      // Beating the last level shows the true ending
+      if (r === 'victory' && level === LEVELS.length) {
+        setScreen('finale')
+      } else {
+        setScreen('ended')
+      }
     },
     [level],
   )
 
   return (
-    <main className="h-dvh w-full">
-      {screen === 'menu' && (
-        <MainMenu
-          onPlay={() => startLevel(1)}
-          onLevels={() => setScreen('levels')}
-          onCharacters={() => setScreen('characters')}
-        />
-      )}
-
-      {screen === 'levels' && (
-        <LevelsScreen
-          maxUnlockedLevel={maxUnlockedLevel}
-          onStartLevel={startLevel}
-          onBack={() => setScreen('menu')}
-        />
-      )}
-
-      {screen === 'characters' && <CharactersScreen onBack={() => setScreen('menu')} />}
-
-      {(screen === 'playing' || screen === 'ended') && (
-        <div className="relative h-full w-full">
-          <Battlefield
-            key={battleKey}
-            level={level}
-            showTutorial={!tutorialSeen && screen === 'playing'}
-            onTutorialSeen={() => setTutorialSeen(true)}
-            onResult={handleResult}
-            onQuit={() => setScreen('menu')}
+    <main>
+      <GameStage>
+        {screen === 'menu' && (
+          <MainMenu
+            onPlay={() => startLevel(1)}
+            onLevels={() => setScreen('levels')}
+            onCharacters={() => setScreen('characters')}
+            onSettings={() => setScreen('settings')}
           />
-          {screen === 'ended' && (
-            <EndScreen
-              result={result}
+        )}
+
+        {screen === 'levels' && (
+          <LevelsScreen
+            maxUnlockedLevel={maxUnlockedLevel}
+            onStartLevel={startLevel}
+            onBack={() => setScreen('menu')}
+          />
+        )}
+
+        {screen === 'characters' && <CharactersScreen onBack={() => setScreen('menu')} />}
+
+        {screen === 'settings' && (
+          <SettingsScreen
+            onBack={() => setScreen('menu')}
+            onCodeApplied={() => setMaxLevel(getMaxUnlockedLevel())}
+          />
+        )}
+
+        {(screen === 'playing' || screen === 'ended' || screen === 'finale') && (
+          <div className="relative h-full w-full">
+            <Battlefield
+              key={battleKey}
               level={level}
-              hasNextLevel={level < LEVELS.length}
-              onRetry={() => startLevel(level)}
-              onNextLevel={() => startLevel(level + 1)}
-              onMenu={() => setScreen('menu')}
+              showTutorial={!tutorialSeen && screen === 'playing'}
+              onTutorialSeen={() => setTutorialSeen(true)}
+              onResult={handleResult}
+              onQuit={() => setScreen('menu')}
             />
-          )}
-        </div>
-      )}
+            {screen === 'ended' && (
+              <EndScreen
+                result={result}
+                level={level}
+                hasNextLevel={level < LEVELS.length}
+                onRetry={() => startLevel(level)}
+                onNextLevel={() => startLevel(level + 1)}
+                onMenu={() => setScreen('menu')}
+              />
+            )}
+            {screen === 'finale' && <FinalEnding onMenu={() => setScreen('menu')} />}
+          </div>
+        )}
+      </GameStage>
     </main>
   )
 }

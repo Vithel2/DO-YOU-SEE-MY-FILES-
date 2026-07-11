@@ -222,6 +222,11 @@ export interface LevelConfig {
   /** ms between enemy spawns */
   spawnIntervalMs: number
   firstSpawnDelayMs: number
+  /**
+   * Level 6 madness: red sky, screen shake, enemies get stronger,
+   * giant enemy variants can spawn.
+   */
+  chaos?: boolean
 }
 
 export const LEVELS: LevelConfig[] = [
@@ -292,6 +297,21 @@ export const LEVELS: LevelConfig[] = [
     ],
     spawnIntervalMs: 3600,
     firstSpawnDelayMs: 2500,
+  },
+  {
+    level: 6,
+    name: 'Уровень 6: ЖЕСТЬ',
+    playerBaseHp: 550,
+    enemyBaseHp: 2500,
+    enemyPool: [
+      { id: 'danil', weight: 2 },
+      { id: 'luntik', weight: 2 },
+      { id: 'sasha', weight: 4 },
+      { id: 'driggert', weight: 4 },
+    ],
+    spawnIntervalMs: 2400,
+    firstSpawnDelayMs: 1500,
+    chaos: true,
   },
 ]
 

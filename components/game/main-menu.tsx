@@ -4,9 +4,10 @@ interface MainMenuProps {
   onPlay: () => void
   onLevels: () => void
   onCharacters: () => void
+  onSettings: () => void
 }
 
-export function MainMenu({ onPlay, onLevels, onCharacters }: MainMenuProps) {
+export function MainMenu({ onPlay, onLevels, onCharacters, onSettings }: MainMenuProps) {
   return (
     <div
       className="relative flex h-full w-full flex-col items-center justify-center gap-5 overflow-hidden bg-cover bg-center md:gap-6"
@@ -89,6 +90,13 @@ export function MainMenu({ onPlay, onLevels, onCharacters }: MainMenuProps) {
             className="rounded-lg border-2 border-border bg-card px-6 py-2 text-base font-bold text-card-foreground shadow-[3px_3px_0_#1a1a2e] transition-transform hover:scale-105 sm:text-lg"
           >
             Персонажи
+          </button>
+          <button
+            type="button"
+            onClick={onSettings}
+            className="rounded-lg border-2 border-border bg-card px-6 py-2 text-base font-bold text-card-foreground shadow-[3px_3px_0_#1a1a2e] transition-transform hover:scale-105 sm:text-lg"
+          >
+            Настройки
           </button>
         </div>
       </nav>
