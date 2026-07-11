@@ -54,16 +54,29 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
   const [sfxOn, setSfxOn] = useState(() => !isSfxMuted())
   const [musicVol, setMusicVol] = useState(() => Math.round(getMusicVolume() * 100))
   const [code, setCode] = useState('')
-  const [codeStatus, setCodeStatus] = useState<'idle' | 'ok' | 'bad' | 'luntik'>('idle')
+  const [codeStatus, setCodeStatus] = useState<'idle' | 'ok' | 'bad'>('idle')
+  const [eggText, setEggText] = useState<string | null>(null)
+
+  // маленькие пасхалки: вводишь имя — персонаж отвечает
+  const EGGS: Record<string, string> = {
+    'ЛУНТИК': 'Я родился!',
+    'САША': 'ты чё офигел?',
+    'ДАНИЛ': 'мне чё нельзя ничё...?',
+    'ДАНИЛА': 'мне чё нельзя ничё...?',
+    'ДРИГГЕРТ': 'поплачь давай!',
+    'АРСЕНИЙ': 'Фильм про Уживитик 2 не выйдё!',
+  }
 
   const applyCode = () => {
     if (!code.trim()) return
-    // маленькая пасхалка
-    if (code.trim().toUpperCase() === 'ЛУНТИК') {
-      setCodeStatus('luntik')
+    const upper = code.trim().toUpperCase()
+    if (EGGS[upper]) {
+      setEggText(EGGS[upper])
+      setCodeStatus('idle')
       setCode('')
       return
     }
+    setEggText(null)
     if (tryApplyCode(code, LEVELS.length)) {
       setCodeStatus('ok')
       onCodeApplied()
@@ -167,9 +180,9 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
               Неверный код
             </span>
           )}
-          {codeStatus === 'luntik' && (
+          {eggText && (
             <span className="text-sm font-bold text-secondary" role="status">
-              Я родился!
+              {eggText}
             </span>
           )}
         </div>
@@ -188,7 +201,7 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
           Игра создана Vithel (тт: vithel_tt)
         </span>
         <span className="text-xs font-bold text-white/80" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.0
+          Beta 1.1
         </span>
       </div>
     </div>

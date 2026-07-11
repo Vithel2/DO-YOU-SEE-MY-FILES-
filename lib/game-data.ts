@@ -118,7 +118,7 @@ export const BOSS_UNIT: UnitType = {
 /** Fast little red arseniys that run out of the boss. */
 export const MINI_RED_UNIT: UnitType = {
   id: 'mini-red',
-  name: 'Красный мини-Арсений',
+  name: 'Вражеский клон мини Арсений',
   image: '/assets/red-arseniy.png',
   cost: 0,
   hp: 14,
@@ -206,7 +206,7 @@ export const ENEMY_UNITS: Record<string, UnitType> = {
     hp: 35,
     damage: 14,
     speed: 6.5,
-    size: 20,
+    size: 40,
   },
   varya: {
     id: 'varya',
@@ -216,7 +216,7 @@ export const ENEMY_UNITS: Record<string, UnitType> = {
     hp: 55,
     damage: 18,
     speed: 5.5,
-    size: 21,
+    size: 42,
   },
   vitalik: {
     id: 'vitalik',
@@ -305,9 +305,9 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
   },
   {
     id: 'mini-red',
-    name: 'Красный мини-Арсений',
-    image: '/assets/red-arseniy.png',
-    description: 'Выбегает из Злого клона. Очень быстрый!',
+  name: 'Вражеский клон мини Арсений',
+  image: '/assets/red-arseniy.png',
+  description: 'Выбегает из Злого клона. Очень быстрый!',
     side: 'enemy',
   },
   {

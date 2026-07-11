@@ -1,0 +1,24 @@
+{
+  "name": "Арсений VS Друзья",
+  "short_name": "АрсенийVSДрузья",
+  "description": "Защити свою будку! Собирай банки, призывай Арсениев и уничтожь вражескую базу друзей.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#4db8e8",
+  "theme_color": "#4db8e8",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

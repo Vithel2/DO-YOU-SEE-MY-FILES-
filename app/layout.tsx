@@ -8,6 +8,16 @@ export const metadata: Metadata = {
   title: 'Арсений VS Друзья',
   description:
     'Защити свою будку! Собирай банки, призывай Арсениев и уничтожь вражескую базу друзей.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Арсений VS Друзья',
+  },
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/icon-192.png',
+  },
 }
 
 export const viewport: Viewport = {

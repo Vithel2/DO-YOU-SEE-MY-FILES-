@@ -218,6 +218,9 @@ export function Battlefield({
   /** Quit mid-battle: still save whatever was earned so far (no-op for guests) */
   const handleQuit = useCallback(() => {
     stopAllBossSounds()
+    // Hard-stop the battle: no more fighting/spawning after leaving the level
+    pausedRef.current = true
+    if (stateRef.current.result === 'playing') stateRef.current.result = 'defeat'
     if (!resultSentRef.current) {
       resultSentRef.current = true
       saveMatchStats({
@@ -254,6 +257,20 @@ export function Battlefield({
     if (adOpen || helpAdOpen) pauseMusic()
     else resumeMusic()
   }, [adOpen, helpAdOpen])
+
+  // Preload enemy images so they appear instantly on first spawn
+  useEffect(() => {
+    for (const entry of config.enemyPool) {
+      const type = ENEMY_UNITS[entry.id]
+      if (!type) continue
+      const img = new Image()
+      img.src = type.image
+      if (type.attackImage) {
+        const atk = new Image()
+        atk.src = type.attackImage
+      }
+    }
+  }, [config])
 
   // Main game loop
   useEffect(() => {
@@ -925,22 +942,18 @@ export function Battlefield({
         />
       )}
 
-      {/* Tupichkina falling from the sky — falls all the way onto the base,
-          then briefly stays where she landed (no teleporting) */}
-      {config.chaos &&
-        (bossRef.current.tupichkina.status === 'falling' ||
-          (bossRef.current.tupichkina.status === 'done' &&
-            Date.now() - bossRef.current.tupichkina.landedAt < 3000)) && (
-          <img
-            src="/assets/tupichkina.png"
-            alt="Тупичкина падает на базу"
-            className="absolute z-30 w-[10%]"
-            style={{
-              left: '2.5%',
-              top: `${-15 + Math.min(1, Math.max(0, 1 - (bossRef.current.tupichkina.landedAt - Date.now()) / 1500)) * 73}%`,
-            }}
-          />
-        )}
+      {/* Tupichkina falling from the sky — disappears the moment she lands */}
+      {config.chaos && bossRef.current.tupichkina.status === 'falling' && (
+        <img
+          src="/assets/tupichkina.png"
+          alt="Тупичкина падает на базу"
+          className="absolute z-30 w-[10%]"
+          style={{
+            left: '2.5%',
+            top: `${-15 + Math.min(1, Math.max(0, 1 - (bossRef.current.tupichkina.landedAt - Date.now()) / 1500)) * 73}%`,
+          }}
+        />
+      )}
 
       {/* Radiation: green filter over everything */}
       {config.chaos && elapsedRef.current < bossRef.current.radiationUntilS && (
