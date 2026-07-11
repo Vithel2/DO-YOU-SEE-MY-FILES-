@@ -100,7 +100,7 @@ export function Battlefield({
   const config = LEVELS.find((l) => l.level === level) ?? LEVELS[0]
 
   const stateRef = useRef<GameState>({
-    currency: 0,
+    currency: 10,
     hasCollectedAnything: false,
     playerBaseHp: config.playerBaseHp,
     enemyBaseHp: config.enemyBaseHp,
@@ -314,17 +314,15 @@ export function Battlefield({
         </button>
       </div>
 
-      {/* Currency counter above our base — appears after first pickup */}
-      {s.hasCollectedAnything && (
-        <div
-          className="absolute z-20 flex items-center gap-1.5 rounded-lg border-2 border-border bg-card px-3 py-1 shadow-[2px_2px_0_#1a1a2e]"
-          style={{ left: '3%', top: '22%' }}
-          aria-live="polite"
-        >
-          <img src="/assets/can-ded.png" alt="" className="h-6 w-6" />
-          <span className="text-xl font-black text-card-foreground">{s.currency}</span>
-        </div>
-      )}
+      {/* Currency counter above our base */}
+      <div
+        className="absolute z-20 flex items-center gap-1.5 rounded-lg border-2 border-border bg-card px-3 py-1 shadow-[2px_2px_0_#1a1a2e]"
+        style={{ left: '3%', top: '22%' }}
+        aria-live="polite"
+      >
+        <img src="/assets/can-ded.png" alt="" className="h-6 w-6" />
+        <span className="text-xl font-black text-card-foreground">{s.currency}</span>
+      </div>
 
       {/* Our base */}
       <div className="absolute z-10" style={{ left: '1%', bottom: '18%', width: '13%' }}>

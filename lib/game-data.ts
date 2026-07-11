@@ -113,8 +113,8 @@ export const LEVELS: LevelConfig[] = [
       { id: 'danil', weight: 3 },
       { id: 'luntik', weight: 2 },
     ],
-    spawnIntervalMs: 8000,
-    firstSpawnDelayMs: 6000,
+    spawnIntervalMs: 11000,
+    firstSpawnDelayMs: 9000,
   },
   {
     level: 2,
