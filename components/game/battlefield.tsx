@@ -20,6 +20,7 @@ import {
   type LevelConfig,
   type UnitType,
 } from '@/lib/game-data'
+import { saveMatchStats } from '@/app/actions/stats'
 import { isDevMode, markCharacterMet } from '@/lib/progress'
 import { playDeathSound, playSound } from '@/lib/sound'
 import { AdModal } from './ad-modal'
@@ -121,6 +122,8 @@ export function Battlefield({
   const [adReadyAt, setAdReadyAt] = useState(0)
   const [now, setNow] = useState(() => Date.now())
   const resultSentRef = useRef(false)
+  // per-match stats for the leaderboards
+  const matchStatsRef = useRef({ enemiesKilled: 0, currencyEarned: 0, superArseniys: 0 })
 
   // Pill (drag & drop onto an Arseniy card)
   const [pillOwned, setPillOwned] = useState(false)
@@ -246,8 +249,10 @@ export function Battlefield({
         }
 
         const before = s.fighters.length
+        const enemyDeaths = s.fighters.filter((f) => f.side === 'enemy' && f.hp <= 0).length
         s.fighters = s.fighters.filter((f) => f.hp > 0)
         if (s.fighters.length < before) playDeathSound()
+        matchStatsRef.current.enemiesKilled += enemyDeaths
 
         // --- help plashka trigger (level 2+, critical situation) ---
         if (
@@ -275,6 +280,12 @@ export function Battlefield({
         if (s.result !== 'playing' && !resultSentRef.current) {
           resultSentRef.current = true
           const finalResult = s.result
+          // persist stats for the leaderboards (no-op for guests)
+          saveMatchStats({
+            ...matchStatsRef.current,
+            victory: finalResult === 'victory',
+            level: config.level,
+          }).catch(() => {})
           setTimeout(() => onResult(finalResult), 1600)
         }
       }
@@ -299,6 +310,7 @@ export function Battlefield({
     can.collected = true
     const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
     s.currency += value
+    matchStatsRef.current.currencyEarned += value
     const progress = Math.min((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 1)
     s.floatTexts.push({
       uid: nextUid(),
@@ -329,6 +341,7 @@ export function Battlefield({
       setPillOwned(false)
       markCharacterMet('super-arseniy')
       playSound('super-spawn')
+      matchStatsRef.current.superArseniys += 1
     } else {
       markCharacterMet(baseId ?? type.id)
       playSound('spawn')
@@ -410,9 +423,10 @@ export function Battlefield({
       const superUnit = SUPER_UNITS[unitId]
       const s = stateRef.current
       if (!baseUnit || !superUnit || s.result !== 'playing' || s.currency < baseUnit.cost) return
-      s.currency -= baseUnit.cost
-      markCharacterMet('super-arseniy')
-      playSound('super-spawn')
+    s.currency -= baseUnit.cost
+    markCharacterMet('super-arseniy')
+    playSound('super-spawn')
+    matchStatsRef.current.superArseniys += 1
       s.fighters.push({
         uid: nextUid(),
         type: superUnit,

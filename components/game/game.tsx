@@ -4,16 +4,27 @@ import { useCallback, useEffect, useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
 import { getMaxUnlockedLevel, setMaxUnlockedLevel } from '@/lib/progress'
 import { playMusic, playSound } from '@/lib/sound'
+import { AccountScreen } from './account-screen'
 import { Battlefield } from './battlefield'
 import { CharactersScreen } from './characters-screen'
 import { EndScreen } from './end-screen'
 import { FinalEnding } from './final-ending'
 import { GameStage } from './game-stage'
+import { LeaderboardScreen } from './leaderboard-screen'
 import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
 import { SettingsScreen } from './settings-screen'
 
-type Screen = 'menu' | 'levels' | 'characters' | 'settings' | 'playing' | 'ended' | 'finale'
+type Screen =
+  | 'menu'
+  | 'levels'
+  | 'characters'
+  | 'settings'
+  | 'account'
+  | 'leaders'
+  | 'playing'
+  | 'ended'
+  | 'finale'
 
 export function Game() {
   const [screen, setScreen] = useState<Screen>('menu')
@@ -78,8 +89,14 @@ export function Game() {
             onLevels={() => setScreen('levels')}
             onCharacters={() => setScreen('characters')}
             onSettings={() => setScreen('settings')}
+            onAccount={() => setScreen('account')}
+            onLeaders={() => setScreen('leaders')}
           />
         )}
+
+        {screen === 'account' && <AccountScreen onBack={() => setScreen('menu')} />}
+
+        {screen === 'leaders' && <LeaderboardScreen onBack={() => setScreen('menu')} />}
 
         {screen === 'levels' && (
           <LevelsScreen
