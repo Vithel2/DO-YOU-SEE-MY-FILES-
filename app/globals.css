@@ -118,3 +118,34 @@ body {
 .chaos-shake {
   animation: chaos-shake 5s linear infinite;
 }
+
+/* Radiation after Vadim's nuke: pulsing green filter */
+@keyframes radiation-pulse {
+  0%,
+  100% {
+    background: rgba(60, 200, 40, 0.22);
+  }
+  50% {
+    background: rgba(90, 230, 50, 0.34);
+  }
+}
+
+.radiation-overlay {
+  animation: radiation-pulse 2.4s ease-in-out infinite;
+  mix-blend-mode: multiply;
+}
+
+/* Boss menace: slow red glow pulse */
+@keyframes boss-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(255, 32, 32, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(255, 32, 32, 0.95));
+  }
+}
+
+.boss-pulse {
+  animation: boss-pulse 2s ease-in-out infinite;
+}

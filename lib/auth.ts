@@ -15,6 +15,9 @@ export const auth = betterAuth({
     autoSignIn: true,
   },
   trustedOrigins: [
+    // Vercel preview/production deployments can be reached via aliases that
+    // differ from VERCEL_URL — trust any *.vercel.app origin.
+    'https://*.vercel.app',
     ...(process.env.NODE_ENV === 'development'
       ? ['http://localhost:3000', 'https://localhost:3000']
       : []),

@@ -101,6 +101,41 @@ export const SUPER_UNITS: Record<string, UnitType> = {
   },
 }
 
+/** Level 6 boss: stands at the enemy base and fires eye lasers. */
+export const BOSS_UNIT: UnitType = {
+  id: 'evil-clone',
+  name: 'Злой клон Арсения',
+  image: '/assets/evil-clone.png',
+  cost: 0,
+  hp: 4000,
+  damage: 0,
+  speed: 0,
+  size: 40,
+}
+
+/** Fast little red arseniys that run out of the boss. */
+export const MINI_RED_UNIT: UnitType = {
+  id: 'mini-red',
+  name: 'Красный мини-Арсений',
+  image: '/assets/red-arseniy.png',
+  cost: 0,
+  hp: 14,
+  damage: 6,
+  speed: 15,
+  size: 12,
+}
+
+/** Boss laser damage */
+export const LASER_FIGHTER_DAMAGE = 35
+export const LASER_BASE_DAMAGE = 18
+export const LASER_INTERVAL_S = 2.8
+/** Heal can (level 6): restores player base HP */
+export const HEAL_CAN_VALUE = 80
+/** Vadim's nuke impact damage to the player base */
+export const NUKE_DAMAGE = 130
+/** Radiation duration after the nuke, seconds */
+export const RADIATION_DURATION_S = 25
+
 export const ENEMY_UNITS: Record<string, UnitType> = {
   danil: {
     id: 'danil',
@@ -210,6 +245,34 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
     description: 'Самый опасный враг. Танк.',
     side: 'enemy',
   },
+  {
+    id: 'evil-clone',
+    name: 'Злой клон Арсения',
+    image: '/assets/evil-clone.png',
+    description: 'Босс 6 уровня. Стреляет лазерами из глаз!',
+    side: 'enemy',
+  },
+  {
+    id: 'mini-red',
+    name: 'Красный мини-Арсений',
+    image: '/assets/red-arseniy.png',
+    description: 'Выбегает из Злого клона. Очень быстрый!',
+    side: 'enemy',
+  },
+  {
+    id: 'evil-vadim',
+    name: 'Злой Вадим на ядерной тачке',
+    image: '/assets/evil-vadim-car.png',
+    description: 'Его не остановить. Едет прямо в базу!',
+    side: 'enemy',
+  },
+  {
+    id: 'tupichkina',
+    name: 'Тупичкина',
+    image: '/assets/tupichkina.png',
+    description: 'Падает с неба прямо на базу. Жуть.',
+    side: 'enemy',
+  },
 ]
 
 export interface LevelConfig {
@@ -223,8 +286,9 @@ export interface LevelConfig {
   spawnIntervalMs: number
   firstSpawnDelayMs: number
   /**
-   * Level 6 madness: red sky, screen shake, enemies get stronger,
-   * giant enemy variants can spawn.
+   * Level 6 boss mode: red sky, screen shake, no normal enemy waves —
+   * instead the Evil Clone boss with lasers, mini-arseniys and events
+   * (Vadim's nuke car, radiation, Tupichkina, virus screen).
    */
   chaos?: boolean
 }
@@ -301,16 +365,12 @@ export const LEVELS: LevelConfig[] = [
   {
     level: 6,
     name: 'Уровень 6: ЖЕСТЬ',
-    playerBaseHp: 550,
-    enemyBaseHp: 2500,
-    enemyPool: [
-      { id: 'danil', weight: 2 },
-      { id: 'luntik', weight: 2 },
-      { id: 'sasha', weight: 4 },
-      { id: 'driggert', weight: 4 },
-    ],
-    spawnIntervalMs: 2400,
-    firstSpawnDelayMs: 1500,
+    playerBaseHp: 600,
+    // In boss mode this value is unused — the boss HP (BOSS_UNIT.hp) is the win condition
+    enemyBaseHp: 4000,
+    enemyPool: [],
+    spawnIntervalMs: 999999,
+    firstSpawnDelayMs: 999999,
     chaos: true,
   },
 ]

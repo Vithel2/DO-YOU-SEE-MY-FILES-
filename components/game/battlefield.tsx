@@ -5,24 +5,32 @@ import { createPortal } from 'react-dom'
 import {
   AD_COOLDOWN_MS,
   AD_REWARD,
+  BOSS_UNIT,
   CAN_DED_VALUE,
   CAN_FALL_DURATION_MS,
   CAN_GROUND_LIFETIME_MS,
   CAN_SHIZA_VALUE,
   CAN_SPAWN_INTERVAL_MS,
   ENEMY_UNITS,
+  HEAL_CAN_VALUE,
   HELP_COOLDOWN_MS,
   HELP_REWARD,
+  LASER_BASE_DAMAGE,
+  LASER_FIGHTER_DAMAGE,
+  LASER_INTERVAL_S,
   LEVELS,
+  MINI_RED_UNIT,
+  NUKE_DAMAGE,
   PILL_COST,
   PLAYER_UNITS,
+  RADIATION_DURATION_S,
   SUPER_UNITS,
   type LevelConfig,
   type UnitType,
 } from '@/lib/game-data'
 import { saveMatchStats } from '@/app/actions/stats'
 import { isDevMode, markCharacterMet } from '@/lib/progress'
-import { playDeathSound, playSound } from '@/lib/sound'
+import { createLoop, playDeathSound, playFile, playSound } from '@/lib/sound'
 import { AdModal } from './ad-modal'
 import { TutorialOverlay } from './tutorial-overlay'
 
@@ -40,11 +48,33 @@ interface Fighter {
 
 interface FallingCan {
   uid: number
-  kind: 'ded' | 'shiza'
+  kind: 'ded' | 'shiza' | 'heal'
   /** x in % of field width */
   x: number
   spawnedAt: number
   collected: boolean
+}
+
+/** Level 6 boss-mode state, all mutated inside the game loop */
+interface BossState {
+  spawned: boolean
+  hp: number
+  maxHp: number
+  laserTimer: number
+  /** active laser beam: target x (%) and what it hits */
+  laser: { toX: number; kind: 'fighter' | 'base'; until: number } | null
+  miniTimer: number
+  /** Vadim on the nuke car */
+  vadim: { status: 'pending' | 'driving' | 'done'; x: number; startAtS: number }
+  /** radiation active until elapsed seconds */
+  radiationUntilS: number
+  nukeExplosionUntil: number
+  /** Tupichkina falling from the sky */
+  tupichkina: { status: 'pending' | 'falling' | 'done'; startAtS: number; landedAt: number }
+  baseSquashed: boolean
+  /** fullscreen virus image */
+  virusUntil: number
+  virusNextAtS: number
 }
 
 interface FloatText {
@@ -57,6 +87,8 @@ interface FloatText {
 interface GameState {
   currency: number
   playerBaseHp: number
+  /** can be reduced mid-battle (Tupichkina squashes the base) */
+  playerMaxHp: number
   enemyBaseHp: number
   fighters: Fighter[]
   cans: FallingCan[]
@@ -64,6 +96,8 @@ interface GameState {
   result: 'playing' | 'victory' | 'defeat'
   explosion: 'none' | 'player' | 'enemy'
 }
+
+const BOSS_X = 84
 
 const PLAYER_BASE_X = 6
 const ENEMY_BASE_X = 94
@@ -109,6 +143,7 @@ export function Battlefield({
   const stateRef = useRef<GameState>({
     currency: isDevMode() ? 9999 : 10,
     playerBaseHp: config.playerBaseHp,
+    playerMaxHp: config.playerBaseHp,
     enemyBaseHp: config.enemyBaseHp,
     fighters: [],
     cans: [],
@@ -116,6 +151,42 @@ export function Battlefield({
     result: 'playing',
     explosion: 'none',
   })
+
+  // --- Level 6 boss mode ---
+  const bossRef = useRef<BossState>({
+    spawned: false,
+    hp: BOSS_UNIT.hp,
+    maxHp: BOSS_UNIT.hp,
+    laserTimer: 0,
+    laser: null,
+    miniTimer: 0,
+    vadim: { status: 'pending', x: ENEMY_BASE_X, startAtS: 20 + Math.random() * 10 },
+    radiationUntilS: 0,
+    nukeExplosionUntil: 0,
+    tupichkina: { status: 'pending', startAtS: 15 + Math.random() * 45, landedAt: 0 },
+    baseSquashed: false,
+    virusUntil: 0,
+    virusNextAtS: 13 + Math.random() * 10,
+  })
+  /** elapsed unpaused game time in seconds (event scheduling) */
+  const elapsedRef = useRef(0)
+  // Looping boss sounds — created once, stopped on unmount
+  const loopsRef = useRef<{ voice: ReturnType<typeof createLoop>; car: ReturnType<typeof createLoop>; radiation: ReturnType<typeof createLoop> } | null>(null)
+  if (loopsRef.current === null) {
+    loopsRef.current = {
+      voice: createLoop('boss-voice', 0.55),
+      car: createLoop('vadim-car', 0.7),
+      radiation: createLoop('radiation', 0.5),
+    }
+  }
+  useEffect(() => {
+    const loops = loopsRef.current
+    return () => {
+      loops?.voice.stop()
+      loops?.car.stop()
+      loops?.radiation.stop()
+    }
+  }, [])
   const [, forceRender] = useState(0)
   const [paused, setPaused] = useState(showTutorial)
   const [adOpen, setAdOpen] = useState(false)
@@ -169,13 +240,25 @@ export function Battlefield({
       const s = stateRef.current
 
       if (!pausedRef.current && s.result === 'playing') {
-        // --- spawn cans (faster in chaos so the player can keep up) ---
+        elapsedRef.current += dt
+        // --- spawn cans (faster in boss mode so the player can keep up) ---
         canSpawnTimerRef.current += dt * 1000
-        if (canSpawnTimerRef.current >= CAN_SPAWN_INTERVAL_MS * (config.chaos ? 0.55 : 1)) {
+        if (canSpawnTimerRef.current >= CAN_SPAWN_INTERVAL_MS * (config.chaos ? 0.5 : 1)) {
           canSpawnTimerRef.current = 0
+          // On level 6 heal cans also drop to patch the base up
+          const roll = Math.random()
+          const kind: FallingCan['kind'] = config.chaos
+            ? roll < 0.22
+              ? 'heal'
+              : roll < 0.45
+                ? 'shiza'
+                : 'ded'
+            : roll < 0.25
+              ? 'shiza'
+              : 'ded'
           s.cans.push({
             uid: nextUid(),
-            kind: Math.random() < 0.25 ? 'shiza' : 'ded',
+            kind,
             x: 15 + Math.random() * 65,
             spawnedAt: Date.now(),
             collected: false,
@@ -189,39 +272,141 @@ export function Battlefield({
             nowMs - c.spawnedAt < CAN_FALL_DURATION_MS + CAN_GROUND_LIFETIME_MS,
         )
 
-        // --- spawn enemies ---
-        enemySpawnTimerRef.current += dt
-        if (enemySpawnTimerRef.current >= config.spawnIntervalMs / 1000) {
-          enemySpawnTimerRef.current = 0
-          let type = pickEnemy(config)
-          markCharacterMet(type.id)
-          if (config.chaos) {
-            // Level 6 madness: everyone is stronger, and sometimes a GIANT comes out
-            const giant = Math.random() < 0.18
-            type = {
-              ...type,
-              name: giant ? `ГИГАНТ ${type.name}` : type.name,
-              hp: Math.round(type.hp * (giant ? 3.5 : 1.4)),
-              damage: Math.round(type.damage * (giant ? 2.5 : 1.3)),
-              speed: giant ? type.speed * 0.8 : type.speed,
-              size: giant ? Math.round(type.size * 1.9) : type.size,
+        if (!config.chaos) {
+          // --- spawn enemies (normal levels) ---
+          enemySpawnTimerRef.current += dt
+          if (enemySpawnTimerRef.current >= config.spawnIntervalMs / 1000) {
+            enemySpawnTimerRef.current = 0
+            const type = pickEnemy(config)
+            markCharacterMet(type.id)
+            s.fighters.push({
+              uid: nextUid(),
+              type,
+              side: 'enemy',
+              x: ENEMY_SPAWN_X,
+              hp: type.hp,
+              maxHp: type.hp,
+              attackCooldown: 0,
+              fighting: false,
+            })
+          }
+        } else {
+          // === LEVEL 6 BOSS MODE ===
+          const boss = bossRef.current
+          const elapsed = elapsedRef.current
+
+          // Boss makes his dramatic entrance after 3 seconds
+          if (!boss.spawned && elapsed >= 3) {
+            boss.spawned = true
+            markCharacterMet('evil-clone')
+            loopsRef.current?.voice.start()
+          }
+
+          if (boss.spawned && boss.hp > 0) {
+            // --- eye lasers: fighters first, base if no fighters ---
+            boss.laserTimer += dt
+            if (boss.laserTimer >= LASER_INTERVAL_S) {
+              boss.laserTimer = 0
+              const targets = s.fighters
+                .filter((f) => f.side === 'player' && f.hp > 0)
+                .sort((a, b) => b.x - a.x)
+              if (targets.length > 0) {
+                const t = targets[0]
+                t.hp -= LASER_FIGHTER_DAMAGE
+                boss.laser = { toX: t.x, kind: 'fighter', until: Date.now() + 450 }
+              } else {
+                s.playerBaseHp -= LASER_BASE_DAMAGE
+                boss.laser = { toX: PLAYER_BASE_X, kind: 'base', until: Date.now() + 450 }
+              }
+            }
+            if (boss.laser && Date.now() > boss.laser.until) boss.laser = null
+
+            // --- little red arseniys run out of the boss ---
+            boss.miniTimer += dt
+            if (boss.miniTimer >= 6) {
+              boss.miniTimer = 0
+              if (Math.random() < 0.65) {
+                const count = Math.random() < 0.35 ? 2 : 1
+                for (let i = 0; i < count; i++) {
+                  markCharacterMet('mini-red')
+                  s.fighters.push({
+                    uid: nextUid(),
+                    type: MINI_RED_UNIT,
+                    side: 'enemy',
+                    x: BOSS_X - 2 - i * 2,
+                    hp: MINI_RED_UNIT.hp,
+                    maxHp: MINI_RED_UNIT.hp,
+                    attackCooldown: 0,
+                    fighting: false,
+                  })
+                }
+              }
+            }
+
+            // --- virus screen interference ---
+            if (elapsed >= boss.virusNextAtS) {
+              boss.virusUntil = Date.now() + 2500
+              boss.virusNextAtS = elapsed + 14 + Math.random() * 12
             }
           }
-          s.fighters.push({
-            uid: nextUid(),
-            type,
-            side: 'enemy',
-            x: ENEMY_SPAWN_X,
-            hp: type.hp,
-            maxHp: type.hp,
-            attackCooldown: 0,
-            fighting: false,
-          })
+
+          // --- Vadim on the nuke car (once per level) ---
+          const vadim = boss.vadim
+          if (vadim.status === 'pending' && elapsed >= vadim.startAtS) {
+            vadim.status = 'driving'
+            markCharacterMet('evil-vadim')
+            loopsRef.current?.car.start()
+          }
+          if (vadim.status === 'driving') {
+            vadim.x -= 11 * dt
+            if (vadim.x <= PLAYER_BASE_X + 3) {
+              vadim.status = 'done'
+              loopsRef.current?.car.stop()
+              playFile('nuke', 0.9)
+              s.playerBaseHp -= NUKE_DAMAGE
+              boss.nukeExplosionUntil = Date.now() + 2200
+              boss.radiationUntilS = elapsed + RADIATION_DURATION_S
+              // radiation hiss right after the nuke blast
+              setTimeout(() => loopsRef.current?.radiation.start(), 2300)
+            }
+          }
+
+          // --- radiation aftermath ---
+          const radiationActive = elapsed < boss.radiationUntilS
+          if (radiationActive) {
+            s.playerBaseHp -= 2.5 * dt
+            for (const f of s.fighters) {
+              if (f.side === 'player') f.hp -= 1.5 * dt
+              else f.hp = Math.min(f.maxHp, f.hp + 2 * dt) // radiation heals enemies
+            }
+          } else if (boss.radiationUntilS > 0 && elapsed >= boss.radiationUntilS) {
+            loopsRef.current?.radiation.stop()
+            boss.radiationUntilS = 0
+          }
+
+          // --- Tupichkina falls from the sky (once per level) ---
+          const tup = boss.tupichkina
+          if (tup.status === 'pending' && elapsed >= tup.startAtS) {
+            tup.status = 'falling'
+            tup.landedAt = Date.now() + 1500
+          }
+          if (tup.status === 'falling' && Date.now() >= tup.landedAt) {
+            tup.status = 'done'
+            markCharacterMet('tupichkina')
+            boss.baseSquashed = true
+            playSound('explosion')
+            // base loses ~30% of max HP and a chunk of current HP
+            s.playerMaxHp = Math.round(s.playerMaxHp * 0.7)
+            s.playerBaseHp = Math.min(s.playerBaseHp, s.playerMaxHp) - Math.round(s.playerMaxHp * 0.12)
+          }
         }
 
         // --- movement & combat ---
         const players = s.fighters.filter((f) => f.side === 'player')
         const enemies = s.fighters.filter((f) => f.side === 'enemy')
+
+        const radiationBuff =
+          config.chaos && elapsedRef.current < bossRef.current.radiationUntilS ? 1.25 : 1
 
         for (const f of s.fighters) {
           f.attackCooldown = Math.max(0, f.attackCooldown - dt)
@@ -233,14 +418,25 @@ export function Battlefield({
           if (target) {
             f.fighting = true
             if (f.attackCooldown <= 0) {
-              target.hp -= f.type.damage
+              target.hp -= f.type.damage * (f.side === 'enemy' ? radiationBuff : 1)
               f.attackCooldown = ATTACK_INTERVAL
             }
           } else {
             f.fighting = false
             // move toward enemy base / player base
             if (f.side === 'player') {
-              if (f.x >= ENEMY_BASE_X - BASE_RANGE) {
+              if (config.chaos && bossRef.current.spawned && bossRef.current.hp > 0) {
+                // In boss mode player fighters attack the BOSS, not the base
+                if (f.x >= BOSS_X - FIGHT_RANGE) {
+                  f.fighting = true
+                  if (f.attackCooldown <= 0) {
+                    bossRef.current.hp -= f.type.damage
+                    f.attackCooldown = ATTACK_INTERVAL
+                  }
+                } else {
+                  f.x += f.type.speed * dt
+                }
+              } else if (f.x >= ENEMY_BASE_X - BASE_RANGE) {
                 if (f.attackCooldown <= 0) {
                   s.enemyBaseHp -= f.type.damage
                   f.attackCooldown = ATTACK_INTERVAL
@@ -251,7 +447,7 @@ export function Battlefield({
             } else {
               if (f.x <= PLAYER_BASE_X + BASE_RANGE) {
                 if (f.attackCooldown <= 0) {
-                  s.playerBaseHp -= f.type.damage
+                  s.playerBaseHp -= f.type.damage * radiationBuff
                   f.attackCooldown = ATTACK_INTERVAL
                 }
               } else {
@@ -280,14 +476,21 @@ export function Battlefield({
         }
 
         // --- win / lose ---
-        if (s.enemyBaseHp <= 0 && s.result === 'playing') {
+        const bossDefeated = config.chaos && bossRef.current.spawned && bossRef.current.hp <= 0
+        if ((config.chaos ? bossDefeated : s.enemyBaseHp <= 0) && s.result === 'playing') {
           s.result = 'victory'
           s.explosion = 'enemy'
           playSound('explosion')
+          loopsRef.current?.voice.stop()
+          loopsRef.current?.car.stop()
+          loopsRef.current?.radiation.stop()
         } else if (s.playerBaseHp <= 0 && s.result === 'playing') {
           s.result = 'defeat'
           s.explosion = 'player'
           playSound('explosion')
+          loopsRef.current?.voice.stop()
+          loopsRef.current?.car.stop()
+          loopsRef.current?.radiation.stop()
         }
 
         if (s.result !== 'playing' && !resultSentRef.current) {
@@ -321,15 +524,24 @@ export function Battlefield({
     const s = stateRef.current
     if (can.collected || s.result !== 'playing') return
     can.collected = true
-    const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
-    s.currency += value
-    matchStatsRef.current.currencyEarned += value
+    let text: string
+    if (can.kind === 'heal') {
+      // heal can restores the player base
+      const healed = Math.min(HEAL_CAN_VALUE, s.playerMaxHp - s.playerBaseHp)
+      s.playerBaseHp = Math.min(s.playerMaxHp, s.playerBaseHp + HEAL_CAN_VALUE)
+      text = `+${Math.max(0, Math.round(healed))} HP`
+    } else {
+      const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
+      s.currency += value
+      matchStatsRef.current.currencyEarned += value
+      text = `+${value}`
+    }
     const progress = Math.min((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 1)
     s.floatTexts.push({
       uid: nextUid(),
       x: can.x,
       y: 8 + progress * 62,
-      text: `+${value}`,
+      text,
     })
     const textUid = s.floatTexts[s.floatTexts.length - 1].uid
     setTimeout(() => {
@@ -490,9 +702,47 @@ export function Battlefield({
   >
           Выход
         </button>
-        <div className="rounded-lg border-2 border-border bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm">
-          {config.name}
-        </div>
+        {config.chaos ? (
+          /* Level 6: epic top-center HP display */
+          <div className="flex w-[46%] max-w-md flex-col gap-1">
+            <div className="rounded-lg border-2 border-border bg-card px-2 py-1 shadow-[2px_2px_0_#1a1a2e]">
+              <div className="mb-0.5 flex items-center justify-between text-[10px] font-black text-card-foreground md:text-xs">
+                <span>НАША БАЗА</span>
+                <span>
+                  {Math.max(0, Math.round(s.playerBaseHp))}/{s.playerMaxHp}
+                </span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full border border-border bg-background md:h-4">
+                <div
+                  className="h-full bg-secondary transition-all"
+                  style={{ width: `${Math.max(0, (s.playerBaseHp / s.playerMaxHp) * 100)}%` }}
+                />
+              </div>
+            </div>
+            {bossRef.current.spawned && bossRef.current.hp > 0 && (
+              <div className="rounded-lg border-2 border-destructive bg-card px-2 py-1 shadow-[2px_2px_0_#1a1a2e]">
+                <div className="mb-0.5 flex items-center justify-between text-[10px] font-black text-destructive md:text-xs">
+                  <span>ЗЛОЙ КЛОН АРСЕНИЯ</span>
+                  <span>
+                    {Math.max(0, Math.round(bossRef.current.hp))}/{bossRef.current.maxHp}
+                  </span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full border border-border bg-background md:h-4">
+                  <div
+                    className="h-full bg-destructive transition-all"
+                    style={{
+                      width: `${Math.max(0, (bossRef.current.hp / bossRef.current.maxHp) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border-2 border-border bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm">
+            {config.name}
+          </div>
+        )}
         <button
           type="button"
           onClick={() => adReady && setAdOpen(true)}
@@ -519,25 +769,139 @@ export function Battlefield({
             />
           )}
         </div>
-        <div className="mb-1 h-2.5 w-full overflow-hidden rounded-full border border-border bg-card">
-          <div
-            className="h-full bg-secondary transition-all"
-            style={{ width: `${Math.max(0, (s.playerBaseHp / config.playerBaseHp) * 100)}%` }}
-          />
-        </div>
-        <img src="/assets/our-base.png" alt="Наша будка" className="w-full" />
+        {!config.chaos && (
+          <div className="mb-1 h-2.5 w-full overflow-hidden rounded-full border border-border bg-card">
+            <div
+              className="h-full bg-secondary transition-all"
+              style={{ width: `${Math.max(0, (s.playerBaseHp / s.playerMaxHp) * 100)}%` }}
+            />
+          </div>
+        )}
+        <img
+          src="/assets/our-base.png"
+          alt="Наша будка"
+          className={`w-full ${bossRef.current.baseSquashed ? 'origin-bottom scale-y-[0.72]' : ''}`}
+        />
+        {/* Tupichkina sits on the squashed base for a bit */}
+        {bossRef.current.tupichkina.status === 'done' &&
+          Date.now() - bossRef.current.tupichkina.landedAt < 4000 && (
+            <img
+              src="/assets/tupichkina.png"
+              alt="Тупичкина раздавила базу"
+              className="absolute -top-[60%] left-1/2 w-[70%] -translate-x-1/2"
+            />
+          )}
       </div>
 
       {/* Enemy base */}
       <div className="absolute z-10" style={{ right: '1%', bottom: '18%', width: '14%' }}>
-        <div className="mb-1 h-2.5 w-full overflow-hidden rounded-full border border-border bg-card">
-          <div
-            className="h-full bg-destructive transition-all"
-            style={{ width: `${Math.max(0, (s.enemyBaseHp / config.enemyBaseHp) * 100)}%` }}
-          />
-        </div>
+        {!config.chaos && (
+          <div className="mb-1 h-2.5 w-full overflow-hidden rounded-full border border-border bg-card">
+            <div
+              className="h-full bg-destructive transition-all"
+              style={{ width: `${Math.max(0, (s.enemyBaseHp / config.enemyBaseHp) * 100)}%` }}
+            />
+          </div>
+        )}
         <img src="/assets/enemy-base.png" alt="Вражеская база" className="w-full" />
       </div>
+
+      {/* === LEVEL 6 BOSS === */}
+      {config.chaos && bossRef.current.spawned && bossRef.current.hp > 0 && (
+        <div
+          className="absolute z-10"
+          style={{
+            left: `${BOSS_X}%`,
+            bottom: '18%',
+            width: `${BOSS_UNIT.size * 0.42}%`,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <img
+            src="/assets/evil-clone.png"
+            alt="Злой клон Арсения"
+            className="boss-pulse w-full object-contain object-bottom"
+          />
+        </div>
+      )}
+
+      {/* Boss eye laser */}
+      {config.chaos && bossRef.current.laser && Date.now() < bossRef.current.laser.until && (
+        <svg
+          className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <line
+            x1={BOSS_X - 3}
+            y1={48}
+            x2={bossRef.current.laser.toX}
+            y2={bossRef.current.laser.kind === 'base' ? 68 : 74}
+            stroke="#ff2020"
+            strokeWidth={1.4}
+            strokeLinecap="round"
+            opacity={0.95}
+          />
+          <line
+            x1={BOSS_X - 3}
+            y1={48}
+            x2={bossRef.current.laser.toX}
+            y2={bossRef.current.laser.kind === 'base' ? 68 : 74}
+            stroke="#ffb0b0"
+            strokeWidth={0.5}
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+
+      {/* Vadim on the nuke car */}
+      {config.chaos && bossRef.current.vadim.status === 'driving' && (
+        <img
+          src="/assets/evil-vadim-car.png"
+          alt="Злой Вадим на ядерной тачке"
+          className="absolute z-20"
+          style={{
+            left: `${bossRef.current.vadim.x}%`,
+            bottom: '17%',
+            width: '17%',
+            transform: 'translateX(-50%) scaleX(-1)',
+          }}
+        />
+      )}
+
+      {/* Nuke explosion at the player base */}
+      {config.chaos && Date.now() < bossRef.current.nukeExplosionUntil && (
+        <video
+          src="/assets/explosion.mp4"
+          autoPlay
+          muted
+          playsInline
+          className="absolute z-30 w-[26%] mix-blend-screen"
+          style={{ left: '-2%', bottom: '14%' }}
+        />
+      )}
+
+      {/* Tupichkina falling from the sky */}
+      {config.chaos && bossRef.current.tupichkina.status === 'falling' && (
+        <img
+          src="/assets/tupichkina.png"
+          alt="Тупичкина падает с неба"
+          className="absolute z-30 w-[10%]"
+          style={{
+            left: '2.5%',
+            top: `${-15 + Math.max(0, 1 - (bossRef.current.tupichkina.landedAt - Date.now()) / 1500) * 60}%`,
+          }}
+        />
+      )}
+
+      {/* Radiation: green filter over everything */}
+      {config.chaos && elapsedRef.current < bossRef.current.radiationUntilS && (
+        <div
+          className="radiation-overlay pointer-events-none absolute inset-0 z-40"
+          aria-hidden="true"
+        />
+      )}
 
       {/* Explosion on destroyed base */}
       {s.explosion !== 'none' && (
@@ -595,13 +959,21 @@ export function Battlefield({
               transform: 'translateX(-50%)',
             }}
             aria-label={
-              can.kind === 'shiza'
-                ? `Собрать банку от шизы, плюс ${CAN_SHIZA_VALUE}`
-                : `Собрать банку Дед, плюс ${CAN_DED_VALUE}`
+              can.kind === 'heal'
+                ? `Собрать банку хилку, лечит базу на ${HEAL_CAN_VALUE}`
+                : can.kind === 'shiza'
+                  ? `Собрать банку от шизы, плюс ${CAN_SHIZA_VALUE}`
+                  : `Собрать банку Дед, плюс ${CAN_DED_VALUE}`
             }
           >
             <img
-              src={can.kind === 'shiza' ? '/assets/can-shiza.png' : '/assets/can-ded.png'}
+              src={
+                can.kind === 'heal'
+                  ? '/assets/can-heal.png'
+                  : can.kind === 'shiza'
+                    ? '/assets/can-shiza.png'
+                    : '/assets/can-ded.png'
+              }
               alt=""
               className="w-full drop-shadow-md"
             />
@@ -793,6 +1165,17 @@ export function Battlefield({
             setHelpOpen(false)
           }}
         />
+      )}
+
+      {/* Level 6: fullscreen virus interference from the Evil Clone */}
+      {config.chaos && Date.now() < bossRef.current.virusUntil && (
+        <div className="absolute inset-0 z-50" role="alert" aria-label="Помехи от Злого клона">
+          <img
+            src="/assets/virus-image.png"
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </div>
       )}
     </div>
   )

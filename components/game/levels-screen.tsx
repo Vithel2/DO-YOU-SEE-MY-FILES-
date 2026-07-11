@@ -14,7 +14,7 @@ const LEVEL_PREVIEWS: Record<number, { image: string; hint: string }> = {
   3: { image: '/assets/luntik.png', hint: 'Враги лезут быстрее!' },
   4: { image: '/assets/sasha.png', hint: 'Саша и Дриггерт наступают!' },
   5: { image: '/assets/enemy-base.png', hint: 'Финальная битва!' },
-  6: { image: '/assets/driggert.png', hint: 'ЖЕСТЬ. Просто жесть.' },
+  6: { image: '/assets/red-arseniy.png', hint: 'ЖЕСТЬ. Просто жесть.' },
 }
 
 export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsScreenProps) {

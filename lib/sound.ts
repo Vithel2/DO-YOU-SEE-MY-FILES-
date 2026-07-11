@@ -79,6 +79,44 @@ export function playDeathSound(volume = 0.7) {
 }
 
 /**
+ * Play a one-shot sound by raw file name (without .mp3), e.g. playFile('nuke').
+ * Used for level 6 boss event sounds.
+ */
+export function playFile(file: string, volume = 0.8) {
+  if (sfxMuted) return
+  const audio = makeAudio(file)
+  if (!audio) return
+  audio.volume = volume
+  audio.play().catch(() => {})
+}
+
+/**
+ * Create a looping sound by raw file name (boss voice, car engine, radiation).
+ * Respects the SFX mute setting. Call stop() on cleanup!
+ */
+export function createLoop(file: string, volume = 0.6) {
+  let audio: HTMLAudioElement | null = null
+  return {
+    start() {
+      if (sfxMuted || typeof window === 'undefined') return
+      if (!audio) {
+        audio = makeAudio(file)
+        if (!audio) return
+        audio.loop = true
+        audio.volume = volume
+      }
+      audio.play().catch(() => {})
+    },
+    stop() {
+      if (audio) {
+        audio.pause()
+        audio.currentTime = 0
+      }
+    },
+  }
+}
+
+/**
  * Start the looping game music (one track for the whole game).
  * The MusicName argument is kept for compatibility — both map to music.mp3.
  */
