@@ -2,6 +2,8 @@ export interface UnitType {
   id: string
   name: string
   image: string
+  /** shown instead of image while the unit is fighting */
+  attackImage?: string
   cardImage?: string
   cost: number
   hp: number
@@ -125,6 +127,23 @@ export const MINI_RED_UNIT: UnitType = {
   size: 12,
 }
 
+/**
+ * Level 6 only: Driggert guard. Stands next to our base, cannot attack,
+ * but has heavy armor (huge HP) and slowly heals himself.
+ */
+export const GUARD_UNIT: UnitType = {
+  id: 'guard-driggert',
+  name: 'Дриггерт-охранник',
+  image: '/assets/driggert.png',
+  cost: 60,
+  hp: 550,
+  damage: 0,
+  speed: 0,
+  size: 26,
+}
+/** Guard self-heal, HP per second */
+export const GUARD_REGEN_PER_S = 9
+
 /** Boss laser damage */
 export const LASER_FIGHTER_DAMAGE = 35
 export const LASER_BASE_DAMAGE = 18
@@ -176,6 +195,38 @@ export const ENEMY_UNITS: Record<string, UnitType> = {
     damage: 20,
     speed: 7,
     size: 19,
+  },
+  /* --- Level 7 («67») enemies --- */
+  'arseniy-enemy': {
+    id: 'arseniy-enemy',
+    name: 'Арсений',
+    image: '/assets/enemy-arseniy.png',
+    attackImage: '/assets/enemy-arseniy-attack.png',
+    cost: 0,
+    hp: 35,
+    damage: 14,
+    speed: 6.5,
+    size: 20,
+  },
+  varya: {
+    id: 'varya',
+    name: 'Варя',
+    image: '/assets/varya.png',
+    cost: 0,
+    hp: 55,
+    damage: 18,
+    speed: 5.5,
+    size: 21,
+  },
+  vitalik: {
+    id: 'vitalik',
+    name: 'Виталик',
+    image: '/assets/vitalik.png',
+    cost: 0,
+    hp: 80,
+    damage: 24,
+    speed: 5,
+    size: 23,
   },
 }
 
@@ -273,6 +324,34 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
     description: 'Падает с неба прямо на базу. Жуть.',
     side: 'enemy',
   },
+  {
+    id: 'guard-driggert',
+    name: 'Дриггерт-охранник',
+    image: '/assets/driggert.png',
+    description: 'Перешёл на нашу сторону! Охраняет базу на 6 уровне.',
+    side: 'player',
+  },
+  {
+    id: 'arseniy-enemy',
+    name: 'Арсений',
+    image: '/assets/enemy-arseniy.png',
+    description: 'Враг с уровня 67. В атаке хватает мяч!',
+    side: 'enemy',
+  },
+  {
+    id: 'varya',
+    name: 'Варя',
+    image: '/assets/varya.png',
+    description: 'Загадочная и тёмная. Уровень 67.',
+    side: 'enemy',
+  },
+  {
+    id: 'vitalik',
+    name: 'Виталик',
+    image: '/assets/vitalik.png',
+    description: 'Шесть-семь! Крепкий боец уровня 67.',
+    side: 'enemy',
+  },
 ]
 
 export interface LevelConfig {
@@ -291,6 +370,8 @@ export interface LevelConfig {
    * (Vadim's nuke car, radiation, Tupichkina, virus screen).
    */
   chaos?: boolean
+  /** Level 7 «67»: secret level with its own song, unlocked only by code */
+  sixtySeven?: boolean
 }
 
 export const LEVELS: LevelConfig[] = [
@@ -372,6 +453,20 @@ export const LEVELS: LevelConfig[] = [
     spawnIntervalMs: 999999,
     firstSpawnDelayMs: 999999,
     chaos: true,
+  },
+  {
+    level: 7,
+    name: 'Уровень 7: 67',
+    playerBaseHp: 500,
+    enemyBaseHp: 1800,
+    enemyPool: [
+      { id: 'arseniy-enemy', weight: 4 },
+      { id: 'varya', weight: 2 },
+      { id: 'vitalik', weight: 2 },
+    ],
+    spawnIntervalMs: 3800,
+    firstSpawnDelayMs: 3000,
+    sixtySeven: true,
   },
 ]
 

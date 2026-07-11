@@ -9,17 +9,19 @@ interface LeaderboardScreenProps {
 }
 
 const CATEGORIES: { id: LeaderboardCategory; label: string; icon: string }[] = [
-  { id: 'enemiesKilled', label: 'Убийца врагов', icon: '/assets/danil.png' },
-  { id: 'currencyEarned', label: 'Богач', icon: '/assets/can-ded.png' },
+  { id: 'enemiesKilled', label: 'Уничтожено врагов', icon: '/assets/danil.png' },
+  { id: 'currencyEarned', label: 'Собрано банок', icon: '/assets/can-ded.png' },
   { id: 'victories', label: 'Победитель', icon: '/assets/our-base.png' },
-  { id: 'superArseniys', label: 'Супер-фанат', icon: '/assets/pill.png' },
+  { id: 'superArseniys', label: 'Таблеточный монстр', icon: '/assets/pill.png' },
 ]
 
 export function LeaderboardScreen({ onBack }: LeaderboardScreenProps) {
   const [category, setCategory] = useState<LeaderboardCategory>('enemiesKilled')
-  const { data: rows, isLoading } = useSWR(['leaderboard', category], () =>
+  const { data, isLoading } = useSWR(['leaderboard', category], () =>
     getLeaderboard(category),
   )
+  const rows = data?.rows
+  const me = data?.me
 
   return (
     <div
@@ -59,15 +61,44 @@ export function LeaderboardScreen({ onBack }: LeaderboardScreenProps) {
               <li
                 key={`${row.name}-${i}`}
                 className={`flex items-center gap-3 rounded-lg px-3 py-1.5 ${
-                  i === 0 ? 'bg-primary/20' : i === 1 ? 'bg-muted' : ''
+                  row.isMe
+                    ? 'border-2 border-primary bg-primary/25 shadow-[2px_2px_0_#1a1a2e]'
+                    : i === 0
+                      ? 'bg-primary/20'
+                      : i === 1
+                        ? 'bg-muted'
+                        : ''
                 }`}
               >
                 <span className="w-7 text-lg font-black text-card-foreground">{i + 1}</span>
-                <span className="flex-1 truncate font-bold text-card-foreground">{row.name}</span>
+                <span className="flex-1 truncate font-bold text-card-foreground">
+                  {row.name}
+                  {row.isMe && (
+                    <span className="ml-2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-black text-primary-foreground align-middle">
+                      ЭТО ТЫ
+                    </span>
+                  )}
+                </span>
                 <span className="font-black text-secondary">{row.value.toLocaleString('ru-RU')}</span>
               </li>
             ))}
           </ol>
+        )}
+
+        {/* Signed-in player is outside the top-10 — show their own row */}
+        {me && (
+          <div className="mt-2 border-t-2 border-dashed border-border pt-2">
+            <div className="flex items-center gap-3 rounded-lg border-2 border-primary bg-primary/25 px-3 py-1.5 shadow-[2px_2px_0_#1a1a2e]">
+              <span className="w-7 text-lg font-black text-card-foreground">{me.rank}</span>
+              <span className="flex-1 truncate font-bold text-card-foreground">
+                {me.name}
+                <span className="ml-2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-black text-primary-foreground align-middle">
+                  ЭТО ТЫ
+                </span>
+              </span>
+              <span className="font-black text-secondary">{me.value.toLocaleString('ru-RU')}</span>
+            </div>
+          </div>
         )}
       </div>
 

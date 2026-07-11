@@ -12,6 +12,8 @@ import {
   CAN_SHIZA_VALUE,
   CAN_SPAWN_INTERVAL_MS,
   ENEMY_UNITS,
+  GUARD_REGEN_PER_S,
+  GUARD_UNIT,
   HEAL_CAN_VALUE,
   HELP_COOLDOWN_MS,
   HELP_REWARD,
@@ -30,7 +32,14 @@ import {
 } from '@/lib/game-data'
 import { saveMatchStats } from '@/app/actions/stats'
 import { isDevMode, markCharacterMet } from '@/lib/progress'
-import { createLoop, playDeathSound, playFile, playSound } from '@/lib/sound'
+import {
+  createLoop,
+  pauseMusic,
+  playDeathSound,
+  playFile,
+  playSound,
+  resumeMusic,
+} from '@/lib/sound'
 import { AdModal } from './ad-modal'
 import { TutorialOverlay } from './tutorial-overlay'
 
@@ -171,22 +180,32 @@ export function Battlefield({
   /** elapsed unpaused game time in seconds (event scheduling) */
   const elapsedRef = useRef(0)
   // Looping boss sounds — created once, stopped on unmount
-  const loopsRef = useRef<{ voice: ReturnType<typeof createLoop>; car: ReturnType<typeof createLoop>; radiation: ReturnType<typeof createLoop> } | null>(null)
+  const loopsRef = useRef<{
+    voice: ReturnType<typeof createLoop>
+    car: ReturnType<typeof createLoop>
+    radiation: ReturnType<typeof createLoop>
+    nuke: ReturnType<typeof createLoop>
+  } | null>(null)
   if (loopsRef.current === null) {
     loopsRef.current = {
-      voice: createLoop('boss-voice', 0.55),
+      voice: createLoop('boss-voice', 1.0),
       car: createLoop('vadim-car', 0.7),
       radiation: createLoop('radiation', 0.5),
+      // one-shot but stoppable: must not keep playing after quit/win/restart
+      nuke: createLoop('nuke', 0.9, false),
     }
   }
-  useEffect(() => {
+  const stopAllBossSounds = useCallback(() => {
     const loops = loopsRef.current
-    return () => {
-      loops?.voice.stop()
-      loops?.car.stop()
-      loops?.radiation.stop()
-    }
+    loops?.voice.stop()
+    loops?.car.stop()
+    loops?.radiation.stop()
+    loops?.nuke.stop()
   }, [])
+  useEffect(() => {
+    // stops everything on unmount too (quit to menu / level restart)
+    return stopAllBossSounds
+  }, [stopAllBossSounds])
   const [, forceRender] = useState(0)
   const [paused, setPaused] = useState(showTutorial)
   const [adOpen, setAdOpen] = useState(false)
@@ -198,6 +217,7 @@ export function Battlefield({
 
   /** Quit mid-battle: still save whatever was earned so far (no-op for guests) */
   const handleQuit = useCallback(() => {
+    stopAllBossSounds()
     if (!resultSentRef.current) {
       resultSentRef.current = true
       saveMatchStats({
@@ -207,7 +227,7 @@ export function Battlefield({
       }).catch(() => {})
     }
     onQuit()
-  }, [onQuit, config.level])
+  }, [onQuit, config.level, stopAllBossSounds])
 
   // Pill (drag & drop onto an Arseniy card)
   const [pillOwned, setPillOwned] = useState(false)
@@ -228,6 +248,12 @@ export function Battlefield({
 
   const pausedRef = useRef(paused)
   pausedRef.current = paused || adOpen || helpAdOpen
+
+  // Music pauses while an ad plays and resumes after
+  useEffect(() => {
+    if (adOpen || helpAdOpen) pauseMusic()
+    else resumeMusic()
+  }, [adOpen, helpAdOpen])
 
   // Main game loop
   useEffect(() => {
@@ -362,7 +388,7 @@ export function Battlefield({
             if (vadim.x <= PLAYER_BASE_X + 3) {
               vadim.status = 'done'
               loopsRef.current?.car.stop()
-              playFile('nuke', 0.9)
+              loopsRef.current?.nuke.start()
               s.playerBaseHp -= NUKE_DAMAGE
               boss.nukeExplosionUntil = Date.now() + 2200
               boss.radiationUntilS = elapsed + RADIATION_DURATION_S
@@ -394,7 +420,7 @@ export function Battlefield({
             tup.status = 'done'
             markCharacterMet('tupichkina')
             boss.baseSquashed = true
-            playSound('explosion')
+            playFile('base-explosion', 0.7)
             // base loses ~30% of max HP and a chunk of current HP
             s.playerMaxHp = Math.round(s.playerMaxHp * 0.7)
             s.playerBaseHp = Math.min(s.playerBaseHp, s.playerMaxHp) - Math.round(s.playerMaxHp * 0.12)
@@ -409,6 +435,10 @@ export function Battlefield({
           config.chaos && elapsedRef.current < bossRef.current.radiationUntilS ? 1.25 : 1
 
         for (const f of s.fighters) {
+          // Driggert guard slowly heals himself
+          if (f.type.id === GUARD_UNIT.id && f.hp < f.maxHp) {
+            f.hp = Math.min(f.maxHp, f.hp + GUARD_REGEN_PER_S * dt)
+          }
           f.attackCooldown = Math.max(0, f.attackCooldown - dt)
           const foes = f.side === 'player' ? enemies : players
           const target = foes
@@ -480,17 +510,15 @@ export function Battlefield({
         if ((config.chaos ? bossDefeated : s.enemyBaseHp <= 0) && s.result === 'playing') {
           s.result = 'victory'
           s.explosion = 'enemy'
-          playSound('explosion')
-          loopsRef.current?.voice.stop()
-          loopsRef.current?.car.stop()
-          loopsRef.current?.radiation.stop()
+          if (config.chaos) playSound('explosion')
+          else playFile('base-explosion', 0.8)
+          stopAllBossSounds()
         } else if (s.playerBaseHp <= 0 && s.result === 'playing') {
           s.result = 'defeat'
           s.explosion = 'player'
-          playSound('explosion')
-          loopsRef.current?.voice.stop()
-          loopsRef.current?.car.stop()
-          loopsRef.current?.radiation.stop()
+          if (config.chaos) playSound('explosion')
+          else playFile('base-explosion', 0.8)
+          stopAllBossSounds()
         }
 
         if (s.result !== 'playing' && !resultSentRef.current) {
@@ -531,7 +559,9 @@ export function Battlefield({
       s.playerBaseHp = Math.min(s.playerMaxHp, s.playerBaseHp + HEAL_CAN_VALUE)
       text = `+${Math.max(0, Math.round(healed))} HP`
     } else {
-      const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
+      // Level 6 pays out much more per can — the boss fight is expensive
+      const value =
+        (can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE) * (config.chaos ? 3 : 1)
       s.currency += value
       matchStatsRef.current.currencyEarned += value
       text = `+${value}`
@@ -549,6 +579,27 @@ export function Battlefield({
         (ft) => ft.uid !== textUid,
       )
     }, 900)
+  }, [config.chaos])
+
+  /** Buy the Driggert guard (level 6 only): stands by our base and tanks hits */
+  const buyGuard = useCallback(() => {
+    const s = stateRef.current
+    if (s.result !== 'playing') return
+    if (s.currency < GUARD_UNIT.cost) return
+    if (s.fighters.some((f) => f.type.id === GUARD_UNIT.id && f.hp > 0)) return
+    s.currency -= GUARD_UNIT.cost
+    markCharacterMet(GUARD_UNIT.id)
+    playSound('spawn')
+    s.fighters.push({
+      uid: nextUid(),
+      type: GUARD_UNIT,
+      side: 'player',
+      x: PLAYER_BASE_X + 4,
+      hp: GUARD_UNIT.hp,
+      maxHp: GUARD_UNIT.hp,
+      attackCooldown: 0,
+      fighting: false,
+    })
   }, [])
 
   const spawnPlayerUnit = useCallback((type: UnitType, baseId?: string) => {
@@ -782,15 +833,6 @@ export function Battlefield({
           alt="Наша будка"
           className={`w-full ${bossRef.current.baseSquashed ? 'origin-bottom scale-y-[0.72]' : ''}`}
         />
-        {/* Tupichkina sits on the squashed base for a bit */}
-        {bossRef.current.tupichkina.status === 'done' &&
-          Date.now() - bossRef.current.tupichkina.landedAt < 4000 && (
-            <img
-              src="/assets/tupichkina.png"
-              alt="Тупичкина раздавила базу"
-              className="absolute -top-[60%] left-1/2 w-[70%] -translate-x-1/2"
-            />
-          )}
       </div>
 
       {/* Enemy base */}
@@ -806,14 +848,14 @@ export function Battlefield({
         <img src="/assets/enemy-base.png" alt="Вражеская база" className="w-full" />
       </div>
 
-      {/* === LEVEL 6 BOSS === */}
+      {/* === LEVEL 6 BOSS (huge) === */}
       {config.chaos && bossRef.current.spawned && bossRef.current.hp > 0 && (
         <div
           className="absolute z-10"
           style={{
             left: `${BOSS_X}%`,
             bottom: '18%',
-            width: `${BOSS_UNIT.size * 0.42}%`,
+            width: '27%',
             transform: 'translateX(-50%)',
           }}
         >
@@ -833,21 +875,22 @@ export function Battlefield({
           preserveAspectRatio="none"
           aria-hidden="true"
         >
+          {/* beam starts at the boss's eyes (he is big now, eyes ~mid-screen) */}
           <line
-            x1={BOSS_X - 3}
-            y1={48}
+            x1={BOSS_X - 6}
+            y1={57}
             x2={bossRef.current.laser.toX}
-            y2={bossRef.current.laser.kind === 'base' ? 68 : 74}
+            y2={bossRef.current.laser.kind === 'base' ? 70 : 76}
             stroke="#ff2020"
             strokeWidth={1.4}
             strokeLinecap="round"
             opacity={0.95}
           />
           <line
-            x1={BOSS_X - 3}
-            y1={48}
+            x1={BOSS_X - 6}
+            y1={57}
             x2={bossRef.current.laser.toX}
-            y2={bossRef.current.laser.kind === 'base' ? 68 : 74}
+            y2={bossRef.current.laser.kind === 'base' ? 70 : 76}
             stroke="#ffb0b0"
             strokeWidth={0.5}
             strokeLinecap="round"
@@ -865,7 +908,7 @@ export function Battlefield({
             left: `${bossRef.current.vadim.x}%`,
             bottom: '17%',
             width: '17%',
-            transform: 'translateX(-50%) scaleX(-1)',
+            transform: 'translateX(-50%)',
           }}
         />
       )}
@@ -882,18 +925,22 @@ export function Battlefield({
         />
       )}
 
-      {/* Tupichkina falling from the sky */}
-      {config.chaos && bossRef.current.tupichkina.status === 'falling' && (
-        <img
-          src="/assets/tupichkina.png"
-          alt="Тупичкина падает с неба"
-          className="absolute z-30 w-[10%]"
-          style={{
-            left: '2.5%',
-            top: `${-15 + Math.max(0, 1 - (bossRef.current.tupichkina.landedAt - Date.now()) / 1500) * 60}%`,
-          }}
-        />
-      )}
+      {/* Tupichkina falling from the sky — falls all the way onto the base,
+          then briefly stays where she landed (no teleporting) */}
+      {config.chaos &&
+        (bossRef.current.tupichkina.status === 'falling' ||
+          (bossRef.current.tupichkina.status === 'done' &&
+            Date.now() - bossRef.current.tupichkina.landedAt < 3000)) && (
+          <img
+            src="/assets/tupichkina.png"
+            alt="Тупичкина падает на базу"
+            className="absolute z-30 w-[10%]"
+            style={{
+              left: '2.5%',
+              top: `${-15 + Math.min(1, Math.max(0, 1 - (bossRef.current.tupichkina.landedAt - Date.now()) / 1500)) * 73}%`,
+            }}
+          />
+        )}
 
       {/* Radiation: green filter over everything */}
       {config.chaos && elapsedRef.current < bossRef.current.radiationUntilS && (
@@ -931,8 +978,17 @@ export function Battlefield({
             transform: 'translateX(-50%)',
           }}
         >
+          {/* Driggert guard shows a small HP bar — he exists to soak damage */}
+          {f.type.id === GUARD_UNIT.id && (
+            <div className="mb-0.5 h-1.5 w-full overflow-hidden rounded-full border border-border bg-background">
+              <div
+                className="h-full bg-secondary"
+                style={{ width: `${Math.max(0, (f.hp / f.maxHp) * 100)}%` }}
+              />
+            </div>
+          )}
           <img
-            src={f.type.image}
+            src={f.fighting && f.type.attackImage ? f.type.attackImage : f.type.image}
             alt={f.type.name}
             className={`w-full object-contain object-bottom ${f.fighting ? 'shake' : ''} ${
               f.side === 'enemy' ? '-scale-x-100' : ''
@@ -1028,6 +1084,43 @@ export function Battlefield({
             </button>
           )
         })}
+
+        {/* Driggert guard card — level 6 only */}
+        {config.chaos &&
+          (() => {
+            const guardAlive = s.fighters.some(
+              (f) => f.type.id === GUARD_UNIT.id && f.hp > 0,
+            )
+            const guardAffordable = s.currency >= GUARD_UNIT.cost
+            return (
+              <button
+                type="button"
+                onClick={buyGuard}
+                disabled={guardAlive || !guardAffordable}
+                className={`flex flex-col items-center gap-0.5 rounded-xl border-4 bg-card p-1 shadow-[3px_3px_0_#1a1a2e] transition-transform md:p-1.5 ${
+                  guardAlive ? 'border-secondary' : 'border-border'
+                } ${
+                  !guardAlive && guardAffordable
+                    ? 'hover:scale-105 active:translate-y-0.5'
+                    : 'cursor-not-allowed opacity-50 grayscale'
+                }`}
+                aria-label={
+                  guardAlive
+                    ? 'Дриггерт уже охраняет базу'
+                    : `Нанять Дриггерта-охранника за ${GUARD_UNIT.cost}`
+                }
+              >
+                <span className="text-base font-black leading-none text-card-foreground md:text-lg">
+                  {guardAlive ? 'Есть!' : GUARD_UNIT.cost}
+                </span>
+                <img
+                  src="/assets/driggert.png"
+                  alt=""
+                  className="h-12 w-12 rounded-md object-cover sm:h-14 sm:w-14 md:h-16 md:w-16"
+                />
+              </button>
+            )
+          })()}
 
         {/* Pill card */}
         <div className="relative flex flex-col items-center">

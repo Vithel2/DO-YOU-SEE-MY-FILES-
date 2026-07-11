@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
 import { getMaxUnlockedLevel, setMaxUnlockedLevel } from '@/lib/progress'
-import { playMusic, playSound } from '@/lib/sound'
+import { playMusic, playMusicFile, playSound } from '@/lib/sound'
 import { AccountScreen } from './account-screen'
 import { Battlefield } from './battlefield'
 import { CharactersScreen } from './characters-screen'
@@ -39,11 +39,11 @@ export function Game() {
     setMaxLevel(getMaxUnlockedLevel())
   }, [])
 
-  // background music per screen
+  // background music per screen; level 7 has its own song (a bit quieter)
   useEffect(() => {
-    if (screen === 'playing') playMusic('battle-music')
+    if (screen === 'playing' && level === 7) playMusicFile('level7-song', 0.18)
     else playMusic('menu-music')
-  }, [screen])
+  }, [screen, level])
 
   // click sound on every button press
   useEffect(() => {
@@ -65,13 +65,14 @@ export function Game() {
     (r: 'victory' | 'defeat') => {
       setResult(r)
       playSound(r === 'victory' ? 'victory' : 'defeat')
-      if (r === 'victory' && level < LEVELS.length) {
+      // Level 7 is secret: it never unlocks by progression, only by code
+      if (r === 'victory' && level < 6) {
         const next = level + 1
         setMaxLevel((m) => Math.max(m, next))
         setMaxUnlockedLevel(next)
       }
-      // Beating the last level shows the true ending
-      if (r === 'victory' && level === LEVELS.length) {
+      // Beating level 6 (the boss) shows the true ending
+      if (r === 'victory' && level === 6) {
         setScreen('finale')
       } else {
         setScreen('ended')

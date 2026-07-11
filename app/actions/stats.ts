@@ -31,7 +31,7 @@ export async function saveMatchStats(stats: MatchStats) {
   const kills = Math.max(0, Math.min(500, Math.floor(stats.enemiesKilled)))
   const earned = Math.max(0, Math.min(100000, Math.floor(stats.currencyEarned)))
   const supers = Math.max(0, Math.min(100, Math.floor(stats.superArseniys)))
-  const level = Math.max(1, Math.min(6, Math.floor(stats.level)))
+  const level = Math.max(1, Math.min(7, Math.floor(stats.level)))
 
   await db
     .insert(playerStats)
@@ -63,6 +63,14 @@ export type LeaderboardCategory = 'enemiesKilled' | 'currencyEarned' | 'victorie
 export interface LeaderboardRow {
   name: string
   value: number
+  /** true when this row belongs to the signed-in player */
+  isMe: boolean
+}
+
+export interface LeaderboardData {
+  rows: LeaderboardRow[]
+  /** the signed-in player's own position when they are NOT in the top-10 */
+  me: { rank: number; name: string; value: number } | null
 }
 
 const CATEGORY_COLUMNS = {
@@ -72,19 +80,51 @@ const CATEGORY_COLUMNS = {
   superArseniys: playerStats.superArseniys,
 } as const
 
-/** Top-10 players for one leaderboard category. Public — no auth needed. */
-export async function getLeaderboard(category: LeaderboardCategory): Promise<LeaderboardRow[]> {
+/**
+ * Top-10 players for one leaderboard category (public), plus the
+ * signed-in player's own rank so they can always see where they stand.
+ */
+export async function getLeaderboard(category: LeaderboardCategory): Promise<LeaderboardData> {
   const column = CATEGORY_COLUMNS[category]
-  if (!column) return []
+  if (!column) return { rows: [], me: null }
 
-  const rows = await db
-    .select({ name: user.name, value: column })
+  const userId = await getUserIdOrNull()
+
+  const top = await db
+    .select({ id: playerStats.userId, name: user.name, value: column })
     .from(playerStats)
     .innerJoin(user, eq(playerStats.userId, user.id))
     .orderBy(desc(column))
     .limit(10)
 
-  return rows.map((r) => ({ name: r.name, value: r.value }))
+  const rows: LeaderboardRow[] = top.map((r) => ({
+    name: r.name,
+    value: r.value,
+    isMe: userId !== null && r.id === userId,
+  }))
+
+  let me: LeaderboardData['me'] = null
+  if (userId && !rows.some((r) => r.isMe)) {
+    const mine = await db
+      .select({ name: user.name, value: column })
+      .from(playerStats)
+      .innerJoin(user, eq(playerStats.userId, user.id))
+      .where(eq(playerStats.userId, userId))
+      .limit(1)
+    if (mine[0]) {
+      const higher = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(playerStats)
+        .where(sql`${column} > ${mine[0].value}`)
+      me = {
+        rank: (higher[0]?.count ?? 0) + 1,
+        name: mine[0].name,
+        value: mine[0].value,
+      }
+    }
+  }
+
+  return { rows, me }
 }
 
 /** The signed-in player's own stats, or null when playing as a guest. */

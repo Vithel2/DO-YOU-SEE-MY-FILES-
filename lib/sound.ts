@@ -30,9 +30,11 @@ export type MusicName = 'menu-music' | 'battle-music'
 
 const MUSIC_KEY = 'avd-music-off'
 const SFX_KEY = 'avd-sfx-off'
+const MUSIC_VOL_KEY = 'avd-music-vol'
 
 const knownMissing = new Set<string>()
 let currentMusic: HTMLAudioElement | null = null
+let currentMusicFile = 'music'
 let musicStarted = false
 
 function readFlag(key: string): boolean {
@@ -55,6 +57,36 @@ function writeFlag(key: string, value: boolean) {
 
 let musicMuted = readFlag(MUSIC_KEY)
 let sfxMuted = readFlag(SFX_KEY)
+
+function readMusicVolume(): number {
+  if (typeof window === 'undefined') return 1
+  try {
+    const raw = localStorage.getItem(MUSIC_VOL_KEY)
+    const n = raw === null ? 1 : Number.parseFloat(raw)
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1
+  } catch {
+    return 1
+  }
+}
+
+/** User-set music volume multiplier, 0..1 (persisted) */
+let musicVolume = readMusicVolume()
+/** base volume of the currently playing track (before the user multiplier) */
+let currentBaseVolume = 0.3
+
+export function setMusicVolume(v: number) {
+  musicVolume = Math.min(1, Math.max(0, v))
+  try {
+    localStorage.setItem(MUSIC_VOL_KEY, String(musicVolume))
+  } catch {
+    // ignore
+  }
+  if (currentMusic) currentMusic.volume = currentBaseVolume * musicVolume
+}
+
+export function getMusicVolume() {
+  return musicVolume
+}
 
 function makeAudio(file: string): HTMLAudioElement | null {
   if (typeof window === 'undefined' || knownMissing.has(file)) return null
@@ -91,10 +123,10 @@ export function playFile(file: string, volume = 0.8) {
 }
 
 /**
- * Create a looping sound by raw file name (boss voice, car engine, radiation).
- * Respects the SFX mute setting. Call stop() on cleanup!
+ * Create a stoppable sound by raw file name (boss voice, car engine,
+ * radiation, nuke). Respects the SFX mute setting. Call stop() on cleanup!
  */
-export function createLoop(file: string, volume = 0.6) {
+export function createLoop(file: string, volume = 0.6, loop = true) {
   let audio: HTMLAudioElement | null = null
   return {
     start() {
@@ -102,9 +134,10 @@ export function createLoop(file: string, volume = 0.6) {
       if (!audio) {
         audio = makeAudio(file)
         if (!audio) return
-        audio.loop = true
+        audio.loop = loop
         audio.volume = volume
       }
+      audio.currentTime = 0
       audio.play().catch(() => {})
     },
     stop() {
@@ -117,17 +150,29 @@ export function createLoop(file: string, volume = 0.6) {
 }
 
 /**
- * Start the looping game music (one track for the whole game).
- * The MusicName argument is kept for compatibility — both map to music.mp3.
+ * Start a looping music track by file name. Switches tracks if a different
+ * one is playing (used by level 7 for its own song).
  */
-export function playMusic(_name?: MusicName, volume = 0.3) {
+export function playMusicFile(file: string, baseVolume = 0.3) {
   if (typeof window === 'undefined' || musicMuted) return
-  if (musicStarted && currentMusic && !currentMusic.paused) return
-  const audio = currentMusic ?? makeAudio('music')
+  currentBaseVolume = baseVolume
+  if (currentMusic && currentMusicFile === file) {
+    currentMusic.volume = baseVolume * musicVolume
+    if (currentMusic.paused) currentMusic.play().catch(() => {})
+    musicStarted = true
+    return
+  }
+  // switching tracks
+  if (currentMusic) {
+    currentMusic.pause()
+    currentMusic.currentTime = 0
+  }
+  const audio = makeAudio(file)
   if (!audio) return
   audio.loop = true
-  audio.volume = volume
+  audio.volume = baseVolume * musicVolume
   currentMusic = audio
+  currentMusicFile = file
   musicStarted = true
   audio.play().catch(() => {
     // Autoplay may be blocked until the first user interaction — retry on it
@@ -138,12 +183,31 @@ export function playMusic(_name?: MusicName, volume = 0.3) {
   })
 }
 
+/**
+ * Start the default looping game music.
+ * The MusicName argument is kept for compatibility.
+ */
+export function playMusic(_name?: MusicName, volume = 0.3) {
+  playMusicFile('music', volume)
+}
+
 export function stopMusic() {
   if (currentMusic) {
     currentMusic.pause()
     currentMusic.currentTime = 0
   }
   musicStarted = false
+}
+
+/** Pause music without resetting (used while an ad is playing) */
+export function pauseMusic() {
+  currentMusic?.pause()
+}
+
+/** Resume paused music (after the ad closes) */
+export function resumeMusic() {
+  if (musicMuted || !musicStarted) return
+  currentMusic?.play().catch(() => {})
 }
 
 /** Turn background music on/off (persisted on the device). */

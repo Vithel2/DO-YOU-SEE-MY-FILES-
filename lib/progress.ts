@@ -67,15 +67,39 @@ export function isDevMode(): boolean {
   }
 }
 
+/* --- Secret level 7 code («число деградации») --- */
+
+const L67_KEY = 'avd-67'
+
+export function is67Unlocked(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(L67_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 /**
  * Try to apply an entered code. Returns true if the code was accepted.
- * The dev code unlocks all levels and gives a pile of money in battles.
+ * VMCT: dev mode — unlocks everything and gives a pile of money in battles.
+ * 67: unlocks the secret level 7.
  */
 export function tryApplyCode(code: string, totalLevels: number): boolean {
-  if (code.trim().toUpperCase() !== SECRET) return false
+  const c = code.trim().toUpperCase()
+  if (c === '67') {
+    try {
+      window.localStorage.setItem(L67_KEY, '1')
+    } catch {
+      // storage unavailable — ignore
+    }
+    return true
+  }
+  if (c !== SECRET) return false
   try {
     window.localStorage.setItem(DEV_KEY, '1')
     window.localStorage.setItem(LEVEL_KEY, String(totalLevels))
+    window.localStorage.setItem(L67_KEY, '1')
   } catch {
     // storage unavailable — ignore
   }

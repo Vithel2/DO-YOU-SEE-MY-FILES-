@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
 import { tryApplyCode } from '@/lib/progress'
 import {
+  getMusicVolume,
   isMusicMuted,
   isSfxMuted,
   setMusicMuted,
+  setMusicVolume,
   setSfxMuted,
 } from '@/lib/sound'
 
@@ -50,11 +52,18 @@ function Toggle({
 export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
   const [musicOn, setMusicOn] = useState(() => !isMusicMuted())
   const [sfxOn, setSfxOn] = useState(() => !isSfxMuted())
+  const [musicVol, setMusicVol] = useState(() => Math.round(getMusicVolume() * 100))
   const [code, setCode] = useState('')
-  const [codeStatus, setCodeStatus] = useState<'idle' | 'ok' | 'bad'>('idle')
+  const [codeStatus, setCodeStatus] = useState<'idle' | 'ok' | 'bad' | 'luntik'>('idle')
 
   const applyCode = () => {
     if (!code.trim()) return
+    // маленькая пасхалка
+    if (code.trim().toUpperCase() === 'ЛУНТИК') {
+      setCodeStatus('luntik')
+      setCode('')
+      return
+    }
     if (tryApplyCode(code, LEVELS.length)) {
       setCodeStatus('ok')
       onCodeApplied()
@@ -85,6 +94,28 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
             setMusicMuted(!v)
           }}
         />
+        {/* Separate music volume slider */}
+        <div className="flex flex-col gap-2 rounded-xl border-4 border-border bg-card px-5 py-3 shadow-[4px_4px_0_#1a1a2e]">
+          <div className="flex items-center justify-between">
+            <span className="text-lg font-black text-card-foreground">Громкость музыки</span>
+            <span className="text-lg font-black text-secondary">{musicVol}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={musicVol}
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              setMusicVol(v)
+              setMusicVolume(v / 100)
+            }}
+            className="h-3 w-full cursor-pointer accent-primary"
+            aria-label="Громкость музыки"
+          />
+        </div>
+
         <Toggle
           label="Звуки"
           checked={sfxOn}
@@ -136,6 +167,11 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
               Неверный код
             </span>
           )}
+          {codeStatus === 'luntik' && (
+            <span className="text-sm font-bold text-secondary" role="status">
+              Я родился!
+            </span>
+          )}
         </div>
       </div>
 
@@ -146,6 +182,15 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
       >
         Назад
       </button>
+
+      <div className="flex flex-col items-center gap-0.5 text-center">
+        <span className="text-sm font-bold text-white" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
+          Игра создана Vithel (тт: vithel_tt)
+        </span>
+        <span className="text-xs font-bold text-white/80" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
+          Beta 1.0
+        </span>
+      </div>
     </div>
   )
 }
