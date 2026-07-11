@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'Rubik', 'Rubik Fallback', sans-serif;
+
+  --color-background: #4db8e8;
+  --color-foreground: #1a1a2e;
+  --color-card: #f5f0e6;
+  --color-card-foreground: #1a1a2e;
+  --color-primary: #ffd800;
+  --color-primary-foreground: #1a1a2e;
+  --color-secondary: #2e8b2e;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #8a8a9a;
+  --color-destructive: #d64545;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #1a1a2e;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+@keyframes float-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+}
+
+.float-up {
+  animation: float-up 0.9s ease-out forwards;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.shake {
+  animation: shake 0.25s ease-in-out;
+}
