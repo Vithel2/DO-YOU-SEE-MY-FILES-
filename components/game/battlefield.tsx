@@ -125,6 +125,19 @@ export function Battlefield({
   // per-match stats for the leaderboards
   const matchStatsRef = useRef({ enemiesKilled: 0, currencyEarned: 0, superArseniys: 0 })
 
+  /** Quit mid-battle: still save whatever was earned so far (no-op for guests) */
+  const handleQuit = useCallback(() => {
+    if (!resultSentRef.current) {
+      resultSentRef.current = true
+      saveMatchStats({
+        ...matchStatsRef.current,
+        victory: false,
+        level: config.level,
+      }).catch(() => {})
+    }
+    onQuit()
+  }, [onQuit, config.level])
+
   // Pill (drag & drop onto an Arseniy card)
   const [pillOwned, setPillOwned] = useState(false)
   const pillOwnedRef = useRef(false)
@@ -471,10 +484,10 @@ export function Battlefield({
       {/* Top bar */}
       <div className="absolute left-0 right-0 top-0 z-30 flex items-start justify-between gap-2 p-2 md:p-3">
         <button
-          type="button"
-          onClick={onQuit}
-          className="rounded-lg border-2 border-border bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm"
-        >
+  type="button"
+  onClick={handleQuit}
+  className="rounded-lg border-2 border-border bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm"
+  >
           Выход
         </button>
         <div className="rounded-lg border-2 border-border bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm">
