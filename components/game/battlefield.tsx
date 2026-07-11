@@ -122,7 +122,11 @@ export function Battlefield({
 
   // Pill (drag & drop onto an Arseniy card)
   const [pillOwned, setPillOwned] = useState(false)
+  const pillOwnedRef = useRef(false)
+  pillOwnedRef.current = pillOwned
   const [pillDrag, setPillDrag] = useState<{ x: number; y: number } | null>(null)
+  const pillDragRef = useRef<{ x: number; y: number } | null>(null)
+  const justDroppedRef = useRef(0)
   const fieldRef = useRef<HTMLDivElement>(null)
 
   // Help plashka (level 2+)
@@ -294,35 +298,51 @@ export function Battlefield({
 
   const spawnPlayerUnit = useCallback((type: UnitType, baseId?: string) => {
     const s = stateRef.current
-    if (s.currency < type.cost || s.result !== 'playing') return
+    // Ignore the synthetic click right after a pill drop on this card
+    if (Date.now() - justDroppedRef.current < 350) return
+    if (s.result !== 'playing') return
+    // If the pill is owned, using a card always creates the SUPER version
+    const superUnit = pillOwnedRef.current ? SUPER_UNITS[baseId ?? type.id] : undefined
+    const actual = superUnit ?? type
+    if (s.currency < type.cost) return
     s.currency -= type.cost
-    markCharacterMet(baseId ?? type.id)
+    if (superUnit) {
+      pillOwnedRef.current = false
+      setPillOwned(false)
+      markCharacterMet('super-arseniy')
+    } else {
+      markCharacterMet(baseId ?? type.id)
+    }
     s.fighters.push({
       uid: nextUid(),
-      type,
+      type: actual,
       side: 'player',
       x: PLAYER_SPAWN_X,
-      hp: type.hp,
-      maxHp: type.hp,
+      hp: actual.hp,
+      maxHp: actual.hp,
       attackCooldown: 0,
       fighting: false,
     })
   }, [])
 
   // --- Pill drag & drop ---
+  // pillDragRef is the source of truth (updated synchronously);
+  // pillDrag state only mirrors it for rendering.
   const buyOrGrabPill = useCallback(
     (e: React.PointerEvent) => {
       const s = stateRef.current
       if (s.result !== 'playing') return
-      if (!pillOwned) {
+      if (!pillOwnedRef.current) {
         if (s.currency < PILL_COST) return
         s.currency -= PILL_COST
+        pillOwnedRef.current = true
         setPillOwned(true)
       }
       ;(e.target as HTMLElement).releasePointerCapture?.(e.pointerId)
+      pillDragRef.current = { x: e.clientX, y: e.clientY }
       setPillDrag({ x: e.clientX, y: e.clientY })
     },
-    [pillOwned],
+    [],
   )
 
   // Global listeners (always attached) so the drop never misses,
@@ -330,15 +350,22 @@ export function Battlefield({
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       if (!pillDragRef.current) return
+      pillDragRef.current = { x: e.clientX, y: e.clientY }
       setPillDrag({ x: e.clientX, y: e.clientY })
     }
 
     const onUp = (e: PointerEvent) => {
-      if (!pillDragRef.current) return
+      const dragPos = pillDragRef.current
+      if (!dragPos) return
+      pillDragRef.current = null
       setPillDrag(null)
-      const el = document.elementFromPoint(e.clientX, e.clientY)
+      // Some environments fire pointerup with 0,0 — fall back to the last drag position
+      const px = e.clientX || dragPos.x
+      const py = e.clientY || dragPos.y
+      const el = document.elementFromPoint(px, py)
       const card = el?.closest('[data-unit-id]') as HTMLElement | null
       if (!card) return
+      justDroppedRef.current = Date.now()
       const unitId = card.dataset.unitId as string
       const baseUnit = PLAYER_UNITS.find((u) => u.id === unitId)
       const superUnit = SUPER_UNITS[unitId]
@@ -356,6 +383,7 @@ export function Battlefield({
         attackCooldown: 0,
         fighting: false,
       })
+      pillOwnedRef.current = false
       setPillOwned(false)
     }
 
