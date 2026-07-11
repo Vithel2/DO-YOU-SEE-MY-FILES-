@@ -18,11 +18,17 @@ export interface UnitType {
  * Combat is fast-paced and HP is hidden: the more expensive a unit is,
  * the tougher it is. The cheapest Arseniy dies to Sasha in one hit.
  */
+/*
+ * Card → spawned image mapping (per the author's spec):
+ *   card 1 (покупки676х736)          → Арсений_Н_ИзФПУ
+ *   card 2 (покупки 2вариант 684х736) → Арсений_Н_ИзЭЖП
+ *   card 3 (покупки 3вариант 680х736) → Арсений_Н_ИзОС
+ */
 export const PLAYER_UNITS: UnitType[] = [
   {
-    id: 'arseniy-ezhp',
-    name: 'Арсений (ЭЖП)',
-    image: '/assets/arseniy-ezhp.png',
+    id: 'arseniy-fpu',
+    name: 'Арсений (ФПУ)',
+    image: '/assets/arseniy-fpu.png',
     cardImage: '/assets/arseniy-card-1.png',
     cost: 10,
     hp: 20,
@@ -31,9 +37,9 @@ export const PLAYER_UNITS: UnitType[] = [
     size: 20,
   },
   {
-    id: 'arseniy-fpu',
-    name: 'Арсений (ФПУ)',
-    image: '/assets/arseniy-fpu.png',
+    id: 'arseniy-ezhp',
+    name: 'Арсений (ЭЖП)',
+    image: '/assets/arseniy-ezhp.png',
     cardImage: '/assets/arseniy-card-2.png',
     cost: 20,
     hp: 45,
@@ -54,23 +60,27 @@ export const PLAYER_UNITS: UnitType[] = [
   },
 ]
 
-/** Pill + Arseniy = super Arseniy. Tier depends on which Arseniy the pill was dropped on. */
+/**
+ * Pill + Arseniy = super Arseniy («Арсений после таблетки»).
+ * Same picture for all tiers — only size, HP and damage grow
+ * with the price of the Arseniy the pill was given to.
+ */
 export const SUPER_UNITS: Record<string, UnitType> = {
-  'arseniy-ezhp': {
+  'arseniy-fpu': {
     id: 'super-small',
     name: 'Супер Арсений (малый)',
-    image: '/assets/arseniy-ezhp.png',
+    image: '/assets/arseniy-super.png',
     cost: 0,
     hp: 60,
     damage: 25,
     speed: 8,
-    size: 22,
+    size: 20,
     isSuper: true,
   },
-  'arseniy-fpu': {
+  'arseniy-ezhp': {
     id: 'super-medium',
     name: 'Супер Арсений (средний)',
-    image: '/assets/arseniy-fpu.png',
+    image: '/assets/arseniy-super.png',
     cost: 0,
     hp: 130,
     damage: 42,
@@ -81,12 +91,12 @@ export const SUPER_UNITS: Record<string, UnitType> = {
   'arseniy-os': {
     id: 'super-big',
     name: 'Супер Арсений (большой)',
-    image: '/assets/arseniy-os.png',
+    image: '/assets/arseniy-super.png',
     cost: 0,
     hp: 280,
     damage: 65,
     speed: 6,
-    size: 32,
+    size: 34,
     isSuper: true,
   },
 }
@@ -145,16 +155,16 @@ export interface GalleryCharacter {
 
 export const GALLERY_CHARACTERS: GalleryCharacter[] = [
   {
-    id: 'arseniy-ezhp',
-    name: 'Арсений (ЭЖП)',
-    image: '/assets/arseniy-ezhp.png',
+    id: 'arseniy-fpu',
+    name: 'Арсений (ФПУ)',
+    image: '/assets/arseniy-fpu.png',
     description: 'Самый дешёвый боец. Быстрый, но хрупкий.',
     side: 'player',
   },
   {
-    id: 'arseniy-fpu',
-    name: 'Арсений (ФПУ)',
-    image: '/assets/arseniy-fpu.png',
+    id: 'arseniy-ezhp',
+    name: 'Арсений (ЭЖП)',
+    image: '/assets/arseniy-ezhp.png',
     description: 'Средний по цене и силе Арсений.',
     side: 'player',
   },
@@ -168,7 +178,7 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
   {
     id: 'super-arseniy',
     name: 'Супер Арсений',
-    image: '/assets/arseniy-os.png',
+    image: '/assets/arseniy-super.png',
     description: 'Таблетка + Арсений = супер сила!',
     side: 'player',
   },
@@ -240,6 +250,48 @@ export const LEVELS: LevelConfig[] = [
     ],
     spawnIntervalMs: 5500,
     firstSpawnDelayMs: 4000,
+  },
+  {
+    level: 3,
+    name: 'Уровень 3',
+    playerBaseHp: 400,
+    enemyBaseHp: 800,
+    enemyPool: [
+      { id: 'danil', weight: 3 },
+      { id: 'luntik', weight: 3 },
+      { id: 'sasha', weight: 2 },
+      { id: 'driggert', weight: 1 },
+    ],
+    spawnIntervalMs: 4800,
+    firstSpawnDelayMs: 3500,
+  },
+  {
+    level: 4,
+    name: 'Уровень 4',
+    playerBaseHp: 450,
+    enemyBaseHp: 1100,
+    enemyPool: [
+      { id: 'danil', weight: 2 },
+      { id: 'luntik', weight: 3 },
+      { id: 'sasha', weight: 3 },
+      { id: 'driggert', weight: 2 },
+    ],
+    spawnIntervalMs: 4200,
+    firstSpawnDelayMs: 3000,
+  },
+  {
+    level: 5,
+    name: 'Уровень 5',
+    playerBaseHp: 500,
+    enemyBaseHp: 1500,
+    enemyPool: [
+      { id: 'danil', weight: 1 },
+      { id: 'luntik', weight: 2 },
+      { id: 'sasha', weight: 3 },
+      { id: 'driggert', weight: 3 },
+    ],
+    spawnIntervalMs: 3600,
+    firstSpawnDelayMs: 2500,
   },
 ]
 

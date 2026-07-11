@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
 import { getMaxUnlockedLevel, setMaxUnlockedLevel } from '@/lib/progress'
+import { playMusic, playSound } from '@/lib/sound'
 import { Battlefield } from './battlefield'
 import { CharactersScreen } from './characters-screen'
 import { EndScreen } from './end-screen'
@@ -24,6 +25,12 @@ export function Game() {
     setMaxLevel(getMaxUnlockedLevel())
   }, [])
 
+  // background music per screen
+  useEffect(() => {
+    if (screen === 'playing') playMusic('battle-music')
+    else playMusic('menu-music')
+  }, [screen])
+
   const startLevel = useCallback((lvl: number) => {
     setLevel(lvl)
     setBattleKey((k) => k + 1)
@@ -33,6 +40,7 @@ export function Game() {
   const handleResult = useCallback(
     (r: 'victory' | 'defeat') => {
       setResult(r)
+      playSound(r === 'victory' ? 'victory' : 'defeat')
       if (r === 'victory' && level < LEVELS.length) {
         const next = level + 1
         setMaxLevel((m) => Math.max(m, next))

@@ -20,6 +20,7 @@ import {
   type UnitType,
 } from '@/lib/game-data'
 import { markCharacterMet } from '@/lib/progress'
+import { playSound } from '@/lib/sound'
 import { AdModal } from './ad-modal'
 import { TutorialOverlay } from './tutorial-overlay'
 
@@ -249,9 +250,11 @@ export function Battlefield({
         if (s.enemyBaseHp <= 0 && s.result === 'playing') {
           s.result = 'victory'
           s.explosion = 'enemy'
+          playSound('explosion')
         } else if (s.playerBaseHp <= 0 && s.result === 'playing') {
           s.result = 'defeat'
           s.explosion = 'player'
+          playSound('explosion')
         }
 
         if (s.result !== 'playing' && !resultSentRef.current) {
@@ -279,6 +282,7 @@ export function Battlefield({
     const s = stateRef.current
     if (can.collected || s.result !== 'playing') return
     can.collected = true
+    playSound('can-collect')
     const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
     s.currency += value
     const progress = Math.min((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 1)
@@ -310,8 +314,10 @@ export function Battlefield({
       pillOwnedRef.current = false
       setPillOwned(false)
       markCharacterMet('super-arseniy')
+      playSound('super-spawn')
     } else {
       markCharacterMet(baseId ?? type.id)
+      playSound('spawn')
     }
     s.fighters.push({
       uid: nextUid(),
@@ -345,6 +351,25 @@ export function Battlefield({
     [],
   )
 
+  /** Cancel the bought pill and refund its cost */
+  const cancelPill = useCallback(() => {
+    if (!pillOwnedRef.current) return
+    stateRef.current.currency += PILL_COST
+    pillOwnedRef.current = false
+    setPillOwned(false)
+    pillDragRef.current = null
+    setPillDrag(null)
+  }, [])
+
+  // Escape cancels the pill mid-drag too
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cancelPill()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [cancelPill])
+
   // Global listeners (always attached) so the drop never misses,
   // even with overlays or very fast drags
   useEffect(() => {
@@ -373,6 +398,7 @@ export function Battlefield({
       if (!baseUnit || !superUnit || s.result !== 'playing' || s.currency < baseUnit.cost) return
       s.currency -= baseUnit.cost
       markCharacterMet('super-arseniy')
+      playSound('super-spawn')
       s.fighters.push({
         uid: nextUid(),
         type: superUnit,
@@ -429,25 +455,22 @@ export function Battlefield({
         </button>
       </div>
 
-      {/* Currency counter above our base */}
-      <div
-        className="absolute z-20 flex items-center gap-1.5 rounded-lg border-2 border-border bg-card px-3 py-1 shadow-[2px_2px_0_#1a1a2e]"
-        style={{ left: '3%', top: '22%' }}
-        aria-live="polite"
-      >
-        <img src="/assets/can-ded.png" alt="" className="h-5 w-5 md:h-6 md:w-6" />
-        <span className="text-lg font-black text-card-foreground md:text-xl">{s.currency}</span>
-        {pillOwned && !pillDrag && (
-          <img
-            src="/assets/can-shiza.png"
-            alt="Таблетка куплена"
-            className="ml-1 h-5 w-5 animate-pulse md:h-6 md:w-6"
-          />
-        )}
-      </div>
-
-      {/* Our base */}
+      {/* Our base with the currency counter right above it */}
       <div className="absolute z-10" style={{ left: '1%', bottom: '18%', width: '13%' }}>
+        <div
+          className="mb-1 flex w-fit items-center gap-1.5 rounded-lg border-2 border-border bg-card px-2.5 py-1 shadow-[2px_2px_0_#1a1a2e] md:px-3"
+          aria-live="polite"
+        >
+          <img src="/assets/can-ded.png" alt="" className="h-5 w-5 md:h-6 md:w-6" />
+          <span className="text-lg font-black text-card-foreground md:text-xl">{s.currency}</span>
+          {pillOwned && !pillDrag && (
+            <img
+              src="/assets/can-shiza.png"
+              alt="Таблетка куплена"
+              className="ml-1 h-5 w-5 animate-pulse md:h-6 md:w-6"
+            />
+          )}
+        </div>
         <div className="mb-1 h-2.5 w-full overflow-hidden rounded-full border border-border bg-card">
           <div
             className="h-full bg-secondary transition-all"
@@ -587,35 +610,47 @@ export function Battlefield({
         })}
 
         {/* Pill card */}
-        <button
-          type="button"
-          onPointerDown={buyOrGrabPill}
-          disabled={!pillOwned && s.currency < PILL_COST}
-          className={`flex flex-col items-center gap-0.5 rounded-xl border-4 bg-card p-1 shadow-[3px_3px_0_#1a1a2e] transition-transform md:p-1.5 ${
-            pillOwned ? 'border-primary' : 'border-border'
-          } ${
-            pillOwned || s.currency >= PILL_COST
-              ? 'cursor-grab hover:scale-105 active:cursor-grabbing'
-              : 'cursor-not-allowed opacity-50 grayscale'
-          }`}
-          style={{ touchAction: 'none' }}
-          aria-label={
-            pillOwned
-              ? 'Перетащи таблетку на Арсения для супер-версии'
-              : `Купить таблетку за ${PILL_COST}`
-          }
-        >
-          <span className="text-base font-black leading-none text-card-foreground md:text-lg">
-            {pillOwned ? 'Тащи!' : PILL_COST}
-          </span>
-          <img
-            src="/assets/can-shiza.png"
-            alt=""
-            className={`h-12 w-12 rounded-md object-contain sm:h-14 sm:w-14 md:h-16 md:w-16 ${
-              pillOwned ? 'animate-pulse' : ''
+        <div className="relative flex flex-col items-center">
+          {pillOwned && !pillDrag && (
+            <button
+              type="button"
+              onClick={cancelPill}
+              className="absolute -top-8 z-10 rounded-lg border-2 border-border bg-destructive px-2 py-0.5 text-xs font-black text-destructive-foreground shadow-[2px_2px_0_#1a1a2e] md:-top-9 md:text-sm"
+              aria-label={`Отменить таблетку и вернуть ${PILL_COST}`}
+            >
+              Отмена
+            </button>
+          )}
+          <button
+            type="button"
+            onPointerDown={buyOrGrabPill}
+            disabled={!pillOwned && s.currency < PILL_COST}
+            className={`flex flex-col items-center gap-0.5 rounded-xl border-4 bg-card p-1 shadow-[3px_3px_0_#1a1a2e] transition-transform md:p-1.5 ${
+              pillOwned ? 'border-primary' : 'border-border'
+            } ${
+              pillOwned || s.currency >= PILL_COST
+                ? 'cursor-grab hover:scale-105 active:cursor-grabbing'
+                : 'cursor-not-allowed opacity-50 grayscale'
             }`}
-          />
-        </button>
+            style={{ touchAction: 'none' }}
+            aria-label={
+              pillOwned
+                ? 'Перетащи таблетку на Арсения для супер-версии'
+                : `Купить таблетку за ${PILL_COST}`
+            }
+          >
+            <span className="text-base font-black leading-none text-card-foreground md:text-lg">
+              {pillOwned ? 'Тащи!' : PILL_COST}
+            </span>
+            <img
+              src="/assets/can-shiza.png"
+              alt=""
+              className={`h-12 w-12 rounded-md object-contain sm:h-14 sm:w-14 md:h-16 md:w-16 ${
+                pillOwned ? 'animate-pulse' : ''
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Dragged pill following the pointer */}

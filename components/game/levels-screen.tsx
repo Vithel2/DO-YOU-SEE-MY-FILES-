@@ -11,6 +11,9 @@ interface LevelsScreenProps {
 const LEVEL_PREVIEWS: Record<number, { image: string; hint: string }> = {
   1: { image: '/assets/danil.png', hint: 'Данил и Лунтик' },
   2: { image: '/assets/driggert.png', hint: 'Появляются Саша и Дриггерт!' },
+  3: { image: '/assets/luntik.png', hint: 'Враги лезут быстрее!' },
+  4: { image: '/assets/sasha.png', hint: 'Саша и Дриггерт наступают!' },
+  5: { image: '/assets/enemy-base.png', hint: 'Финальная битва!' },
 }
 
 export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsScreenProps) {
