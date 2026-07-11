@@ -877,8 +877,8 @@ export function Battlefield({
         >
           {/* beam starts at the boss's eyes (he is big now, eyes ~mid-screen) */}
           <line
-            x1={BOSS_X - 6}
-            y1={57}
+            x1={BOSS_X + 1}
+            y1={61}
             x2={bossRef.current.laser.toX}
             y2={bossRef.current.laser.kind === 'base' ? 70 : 76}
             stroke="#ff2020"
@@ -887,8 +887,8 @@ export function Battlefield({
             opacity={0.95}
           />
           <line
-            x1={BOSS_X - 6}
-            y1={57}
+            x1={BOSS_X + 1}
+            y1={61}
             x2={bossRef.current.laser.toX}
             y2={bossRef.current.laser.kind === 'base' ? 70 : 76}
             stroke="#ffb0b0"
