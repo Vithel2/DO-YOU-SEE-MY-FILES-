@@ -31,6 +31,16 @@ export function Game() {
     else playMusic('menu-music')
   }, [screen])
 
+  // click sound on every button press
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('button')) playSound('click', 0.5)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [])
+
   const startLevel = useCallback((lvl: number) => {
     setLevel(lvl)
     setBattleKey((k) => k + 1)

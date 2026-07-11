@@ -39,10 +39,10 @@ export function TutorialOverlay({ onClose }: TutorialOverlayProps) {
             </span>
           </li>
           <li className="flex items-center gap-3">
-            <img src="/assets/can-shiza.png" alt="" className="h-10 w-10 shrink-0" />
+            <img src="/assets/pill.png" alt="" className="h-10 w-10 shrink-0 object-contain" />
             <span>
-              Купи <strong>таблетку</strong> и перетащи её на карточку Арсения — появится{' '}
-              <strong>СУПЕР Арсений</strong>! Чем дороже Арсений, тем круче супер-версия.
+              Нажми на кнопку с <strong>таблеткой</strong> и перетащи её на карточку Арсения —
+              появится <strong>СУПЕР Арсений</strong>! Чем дороже Арсений, тем круче супер-версия.
             </span>
           </li>
           <li className="flex items-center gap-3">

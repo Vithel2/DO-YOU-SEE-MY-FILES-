@@ -20,7 +20,7 @@ import {
   type UnitType,
 } from '@/lib/game-data'
 import { markCharacterMet } from '@/lib/progress'
-import { playSound } from '@/lib/sound'
+import { playDeathSound, playSound } from '@/lib/sound'
 import { AdModal } from './ad-modal'
 import { TutorialOverlay } from './tutorial-overlay'
 
@@ -232,7 +232,9 @@ export function Battlefield({
           }
         }
 
+        const before = s.fighters.length
         s.fighters = s.fighters.filter((f) => f.hp > 0)
+        if (s.fighters.length < before) playDeathSound()
 
         // --- help plashka trigger (level 2+, critical situation) ---
         if (
@@ -282,7 +284,6 @@ export function Battlefield({
     const s = stateRef.current
     if (can.collected || s.result !== 'playing') return
     can.collected = true
-    playSound('can-collect')
     const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
     s.currency += value
     const progress = Math.min((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 1)
@@ -465,7 +466,7 @@ export function Battlefield({
           <span className="text-lg font-black text-card-foreground md:text-xl">{s.currency}</span>
           {pillOwned && !pillDrag && (
             <img
-              src="/assets/can-shiza.png"
+              src="/assets/pill.png"
               alt="Таблетка куплена"
               className="ml-1 h-5 w-5 animate-pulse md:h-6 md:w-6"
             />
@@ -643,7 +644,7 @@ export function Battlefield({
               {pillOwned ? 'Тащи!' : PILL_COST}
             </span>
             <img
-              src="/assets/can-shiza.png"
+              src={pillOwned ? '/assets/pill.png' : '/assets/pill-button.png'}
               alt=""
               className={`h-12 w-12 rounded-md object-contain sm:h-14 sm:w-14 md:h-16 md:w-16 ${
                 pillOwned ? 'animate-pulse' : ''
@@ -656,7 +657,7 @@ export function Battlefield({
       {/* Dragged pill following the pointer */}
       {pillDrag && (
         <img
-          src="/assets/can-shiza.png"
+          src="/assets/pill.png"
           alt=""
           className="super-glow pointer-events-none fixed z-50 h-16 w-16 -translate-x-1/2 -translate-y-1/2"
           style={{ left: pillDrag.x, top: pillDrag.y }}
