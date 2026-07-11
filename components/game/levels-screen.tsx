@@ -1,6 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
+import { is67Unlocked } from '@/lib/progress'
 
 interface LevelsScreenProps {
   maxUnlockedLevel: number
@@ -15,9 +17,15 @@ const LEVEL_PREVIEWS: Record<number, { image: string; hint: string }> = {
   4: { image: '/assets/sasha.png', hint: 'Саша и Дриггерт наступают!' },
   5: { image: '/assets/enemy-base.png', hint: 'Финальная битва!' },
   6: { image: '/assets/red-arseniy.png', hint: 'ЖЕСТЬ. Просто жесть.' },
+  7: { image: '/assets/vitalik.png', hint: 'Шесть-семь!' },
 }
 
 export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsScreenProps) {
+  const [secretOpen, setSecretOpen] = useState(false)
+  useEffect(() => {
+    setSecretOpen(is67Unlocked())
+  }, [])
+
   return (
     <div
       className="relative flex h-full w-full flex-col items-center justify-center gap-6 overflow-y-auto bg-cover bg-center p-4"
@@ -32,7 +40,9 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
 
       <div className="flex flex-wrap items-stretch justify-center gap-4 md:gap-6">
         {LEVELS.map((lvl) => {
-          const locked = lvl.level > maxUnlockedLevel
+          const isSecret = lvl.level === 7
+          // Level 7 is always shown but only unlocks via the secret code
+          const locked = isSecret ? !secretOpen : lvl.level > maxUnlockedLevel
           const preview = LEVEL_PREVIEWS[lvl.level]
           return (
             <button
@@ -40,7 +50,9 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
               type="button"
               onClick={() => !locked && onStartLevel(lvl.level)}
               disabled={locked}
-              className={`flex w-40 flex-col items-center gap-2 rounded-2xl border-4 border-border bg-card p-4 shadow-[5px_5px_0_#1a1a2e] transition-transform sm:w-48 ${
+              className={`flex w-40 flex-col items-center gap-2 rounded-2xl border-4 bg-card p-4 shadow-[5px_5px_0_#1a1a2e] transition-transform sm:w-48 ${
+                isSecret ? 'border-secondary' : 'border-border'
+              } ${
                 locked
                   ? 'cursor-not-allowed opacity-60 grayscale'
                   : 'hover:scale-105 active:translate-y-1'
@@ -62,7 +74,11 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
                 )}
               </div>
               <span className="text-pretty text-center text-xs font-bold text-card-foreground sm:text-sm">
-                {locked ? 'Пройди предыдущий уровень!' : preview?.hint}
+                {locked
+                  ? isSecret
+                    ? 'Код: число деградации'
+                    : 'Пройди предыдущий уровень!'
+                  : preview?.hint}
               </span>
               {!locked && (
                 <span className="mt-1 rounded-lg border-2 border-border bg-primary px-4 py-1 text-sm font-black text-primary-foreground shadow-[2px_2px_0_#1a1a2e]">

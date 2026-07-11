@@ -149,3 +149,26 @@ body {
 .boss-pulse {
   animation: boss-pulse 2s ease-in-out infinite;
 }
+
+/* Gentle idle "breathing" bob for menu characters */
+@keyframes idle-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--bob-rotate, 0deg)) scale(1);
+  }
+  50% {
+    transform: translateY(-7px) rotate(var(--bob-rotate, 0deg)) scale(1.03);
+  }
+}
+
+.idle-bob {
+  animation: idle-bob 2.6s ease-in-out infinite;
+}
+
+.idle-bob-slow {
+  animation: idle-bob 3.4s ease-in-out infinite;
+}
+
+.idle-bob-delay {
+  animation-delay: 0.9s;
+}
