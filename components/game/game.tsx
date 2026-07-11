@@ -1,20 +1,28 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
+import { getMaxUnlockedLevel, setMaxUnlockedLevel } from '@/lib/progress'
 import { Battlefield } from './battlefield'
+import { CharactersScreen } from './characters-screen'
 import { EndScreen } from './end-screen'
+import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
 
-type Screen = 'menu' | 'playing' | 'ended'
+type Screen = 'menu' | 'levels' | 'characters' | 'playing' | 'ended'
 
 export function Game() {
   const [screen, setScreen] = useState<Screen>('menu')
   const [level, setLevel] = useState(1)
-  const [maxUnlockedLevel, setMaxUnlockedLevel] = useState(1)
+  const [maxUnlockedLevel, setMaxLevel] = useState(1)
   const [tutorialSeen, setTutorialSeen] = useState(false)
   const [result, setResult] = useState<'victory' | 'defeat'>('victory')
   const [battleKey, setBattleKey] = useState(0)
+
+  // restore saved progress on the device
+  useEffect(() => {
+    setMaxLevel(getMaxUnlockedLevel())
+  }, [])
 
   const startLevel = useCallback((lvl: number) => {
     setLevel(lvl)
@@ -26,7 +34,9 @@ export function Game() {
     (r: 'victory' | 'defeat') => {
       setResult(r)
       if (r === 'victory' && level < LEVELS.length) {
-        setMaxUnlockedLevel((m) => Math.max(m, level + 1))
+        const next = level + 1
+        setMaxLevel((m) => Math.max(m, next))
+        setMaxUnlockedLevel(next)
       }
       setScreen('ended')
     },
@@ -36,8 +46,22 @@ export function Game() {
   return (
     <main className="h-dvh w-full">
       {screen === 'menu' && (
-        <MainMenu maxUnlockedLevel={maxUnlockedLevel} onStartLevel={startLevel} />
+        <MainMenu
+          onPlay={() => startLevel(1)}
+          onLevels={() => setScreen('levels')}
+          onCharacters={() => setScreen('characters')}
+        />
       )}
+
+      {screen === 'levels' && (
+        <LevelsScreen
+          maxUnlockedLevel={maxUnlockedLevel}
+          onStartLevel={startLevel}
+          onBack={() => setScreen('menu')}
+        />
+      )}
+
+      {screen === 'characters' && <CharactersScreen onBack={() => setScreen('menu')} />}
 
       {(screen === 'playing' || screen === 'ended') && (
         <div className="relative h-full w-full">

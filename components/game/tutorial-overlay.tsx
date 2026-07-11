@@ -39,6 +39,13 @@ export function TutorialOverlay({ onClose }: TutorialOverlayProps) {
             </span>
           </li>
           <li className="flex items-center gap-3">
+            <img src="/assets/can-shiza.png" alt="" className="h-10 w-10 shrink-0" />
+            <span>
+              Купи <strong>таблетку</strong> и перетащи её на карточку Арсения — появится{' '}
+              <strong>СУПЕР Арсений</strong>! Чем дороже Арсений, тем круче супер-версия.
+            </span>
+          </li>
+          <li className="flex items-center gap-3">
             <img src="/assets/enemy-base.png" alt="" className="h-10 w-10 shrink-0 object-contain" />
             <span>
               Защити свою будку слева и уничтожь вражескую базу справа, откуда лезут
