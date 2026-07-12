@@ -7,7 +7,9 @@ import {
   CAN_GROUND_LIFETIME_MS,
   CAN_SHIZA_VALUE,
   CAN_SPAWN_INTERVAL_MS,
+  PILL_COST,
   PLAYER_UNITS,
+  SUPER_UNITS,
   type UnitType,
 } from '@/lib/game-data'
 import { pollMatch, reportResult, sendCommand } from '@/app/actions/pvp'
@@ -33,11 +35,20 @@ interface Fighter {
 
 interface FallingCan {
   uid: number
-  kind: 'ded' | 'shiza'
+  kind: 'ded' | 'shiza' | 'gold'
   x: number
   spawnedAt: number
   collected: boolean
 }
+
+/** Golden can: rare, worth a fortune */
+const CAN_GOLD_VALUE = 100
+const GOLD_CHANCE = 0.06
+/** Can rain event: a burst of cans with a banner */
+const CAN_RAIN_INTERVAL_S = 50
+const CAN_RAIN_COUNT = 6
+/** Sudden death: after this many seconds base damage doubles */
+const SUDDEN_DEATH_S = 150
 
 interface FloatText {
   uid: number
@@ -103,6 +114,24 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
   const canTimerRef = useRef(0)
   const [isTouch, setIsTouch] = useState(false)
 
+  // pill: while owned, buying an Arseniy spawns the SUPER version
+  const [pillOwned, setPillOwned] = useState(false)
+  const pillOwnedRef = useRef(false)
+  pillOwnedRef.current = pillOwned
+
+  // fun events
+  const elapsedRef = useRef(0)
+  const rainTimerRef = useRef(0)
+  const suddenDeathRef = useRef(false)
+  const [banner, setBanner] = useState<string | null>(null)
+  const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const showBanner = useCallback((text: string) => {
+    setBanner(text)
+    if (bannerTimeoutRef.current) clearTimeout(bannerTimeoutRef.current)
+    bannerTimeoutRef.current = setTimeout(() => setBanner(null), 2800)
+  }, [])
+
   useEffect(() => {
     setIsTouch(window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
   }, [])
@@ -131,9 +160,12 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
           if (myElo === null) setMyElo(res.myElo)
 
           // spawn opponent units from their commands
+          // «super:<baseId>» means the opponent used a pill on that Arseniy
           for (const cmd of res.commands) {
             lastCmdIdRef.current = Math.max(lastCmdIdRef.current, cmd.id)
-            const type = PLAYER_UNITS.find((u) => u.id === cmd.unitId)
+            const type = cmd.unitId.startsWith('super:')
+              ? SUPER_UNITS[cmd.unitId.slice(6)]
+              : PLAYER_UNITS.find((u) => u.id === cmd.unitId)
             if (!type) continue
             stateRef.current.fighters.push({
               uid: nextUid(),
@@ -155,10 +187,12 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
             s.result = iWon ? 'victory' : 'defeat'
             s.explosion = iWon ? 'enemy' : 'player'
             boomRef.current?.start()
+            // «сбежал» only if both bases are still clearly alive — a base
+            // at low HP means the opponent's sim finished slightly ahead of ours
             setFinished({
               iWon,
               eloDelta: res.myEloDelta ?? 0,
-              byDisconnect: s.oppBaseHp > 0 && s.myBaseHp > 0,
+              byDisconnect: s.oppBaseHp > PVP_BASE_HP * 0.3 && s.myBaseHp > PVP_BASE_HP * 0.3,
             })
             return // stop polling
           }
@@ -217,17 +251,44 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
       const s = stateRef.current
 
       if (s.result === 'playing' && !finishedRef.current) {
-        // --- my own cans (independent random per player, same rates) ---
+        elapsedRef.current += dt
+
+        // --- my own cans: spawn faster and faster as the match goes on ---
+        // 5000ms at the start → floor of 1800ms by ~2.5 minutes
+        const canInterval = Math.max(1800, CAN_SPAWN_INTERVAL_MS - elapsedRef.current * 21)
         canTimerRef.current += dt * 1000
-        if (canTimerRef.current >= CAN_SPAWN_INTERVAL_MS) {
+        if (canTimerRef.current >= canInterval) {
           canTimerRef.current = 0
+          const roll = Math.random()
           s.cans.push({
             uid: nextUid(),
-            kind: Math.random() < 0.25 ? 'shiza' : 'ded',
+            kind: roll < GOLD_CHANCE ? 'gold' : roll < GOLD_CHANCE + 0.25 ? 'shiza' : 'ded',
             x: 15 + Math.random() * 65,
             spawnedAt: Date.now(),
             collected: false,
           })
+        }
+
+        // --- can rain event: a burst of cans with an announcement ---
+        rainTimerRef.current += dt
+        if (rainTimerRef.current >= CAN_RAIN_INTERVAL_S) {
+          rainTimerRef.current = 0
+          showBanner('ДОЖДЬ БАНОК!!!')
+          for (let i = 0; i < CAN_RAIN_COUNT; i++) {
+            s.cans.push({
+              uid: nextUid(),
+              kind: Math.random() < 0.15 ? 'gold' : Math.random() < 0.3 ? 'shiza' : 'ded',
+              x: 12 + Math.random() * 72,
+              spawnedAt: Date.now() + i * 350,
+              collected: false,
+            })
+          }
+        }
+
+        // --- sudden death: double base damage so matches can't last forever ---
+        if (!suddenDeathRef.current && elapsedRef.current >= SUDDEN_DEATH_S) {
+          suddenDeathRef.current = true
+          showBanner('ВНЕЗАПНАЯ СМЕРТЬ! Урон по будкам x2!')
         }
         const nowMs = Date.now()
         s.cans = s.cans.filter(
@@ -253,10 +314,11 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
             }
           } else {
             f.fighting = false
+            const baseMult = suddenDeathRef.current ? 2 : 1
             if (f.side === 'player') {
               if (f.x >= ENEMY_BASE_X - BASE_RANGE) {
                 if (f.attackCooldown <= 0) {
-                  s.oppBaseHp -= f.type.damage
+                  s.oppBaseHp -= f.type.damage * baseMult
                   f.attackCooldown = ATTACK_INTERVAL
                 }
               } else {
@@ -265,7 +327,7 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
             } else {
               if (f.x <= PLAYER_BASE_X + BASE_RANGE) {
                 if (f.attackCooldown <= 0) {
-                  s.myBaseHp -= f.type.damage
+                  s.myBaseHp -= f.type.damage * baseMult
                   f.attackCooldown = ATTACK_INTERVAL
                 }
               } else {
@@ -306,9 +368,10 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
     const s = stateRef.current
     if (can.collected || s.result !== 'playing') return
     can.collected = true
-    const value = can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
+    const value =
+      can.kind === 'gold' ? CAN_GOLD_VALUE : can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE
     s.currency += value
-    const progress = Math.min((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 1)
+    const progress = Math.min(Math.max((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 0), 1)
     s.floatTexts.push({ uid: nextUid(), x: can.x, y: 8 + progress * 62, text: `+${value}` })
     const textUid = s.floatTexts[s.floatTexts.length - 1].uid
     setTimeout(() => {
@@ -321,23 +384,51 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
       const s = stateRef.current
       if (s.result !== 'playing' || finishedRef.current) return
       if (s.currency < type.cost) return
+
+      // pill owned → this purchase becomes the SUPER version (same cost)
+      const superUnit = pillOwnedRef.current ? SUPER_UNITS[type.id] : undefined
+      const actual = superUnit ?? type
+
       s.currency -= type.cost
-      playSound('spawn')
+      if (superUnit) {
+        pillOwnedRef.current = false
+        setPillOwned(false)
+        playSound('super-spawn')
+      } else {
+        playSound('spawn')
+      }
       s.fighters.push({
         uid: nextUid(),
-        type,
+        type: actual,
         side: 'player',
         x: PLAYER_SPAWN_X,
-        hp: type.hp,
-        maxHp: type.hp,
+        hp: actual.hp,
+        maxHp: actual.hp,
         attackCooldown: 0,
         fighting: false,
       })
       // fire-and-forget: the opponent picks this up on their next poll
-      sendCommand(matchId, type.id).catch(() => {})
+      sendCommand(matchId, superUnit ? `super:${type.id}` : type.id).catch(() => {})
     },
     [matchId],
   )
+
+  /** Buy the pill (or cancel it for a refund) */
+  const togglePill = useCallback(() => {
+    const s = stateRef.current
+    if (s.result !== 'playing' || finishedRef.current) return
+    if (pillOwnedRef.current) {
+      s.currency += PILL_COST
+      pillOwnedRef.current = false
+      setPillOwned(false)
+      return
+    }
+    if (s.currency < PILL_COST) return
+    s.currency -= PILL_COST
+    playSound('click')
+    pillOwnedRef.current = true
+    setPillOwned(true)
+  }, [])
 
   /** Quit mid-match = forfeit (opponent gets the win) */
   const handleQuit = useCallback(() => {
@@ -437,14 +528,18 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
             alt={f.type.name}
             className={`w-full object-contain object-bottom ${f.fighting ? 'shake' : ''} ${
               f.side === 'enemy' ? '-scale-x-100 hue-rotate-180' : ''
-            }`}
+            } ${f.type.isSuper ? 'super-glow' : ''}`}
           />
         </div>
       ))}
 
       {/* falling cans */}
       {s.cans.map((can) => {
-        const progress = Math.min((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 1)
+        // rain cans have a future spawnedAt (staggered) — clamp to 0
+        const progress = Math.min(
+          Math.max((Date.now() - can.spawnedAt) / CAN_FALL_DURATION_MS, 0),
+          1,
+        )
         const top = 8 + progress * 62
         return (
           <button
@@ -460,15 +555,21 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
               transform: 'translateX(-50%)',
             }}
             aria-label={
-              can.kind === 'shiza'
-                ? `Собрать банку от шизы, плюс ${CAN_SHIZA_VALUE}`
-                : `Собрать банку Дед, плюс ${CAN_DED_VALUE}`
+              can.kind === 'gold'
+                ? `Собрать ЗОЛОТУЮ банку, плюс ${CAN_GOLD_VALUE}!`
+                : can.kind === 'shiza'
+                  ? `Собрать банку от шизы, плюс ${CAN_SHIZA_VALUE}`
+                  : `Собрать банку Дед, плюс ${CAN_DED_VALUE}`
             }
           >
             <img
               src={can.kind === 'shiza' ? '/assets/can-shiza.png' : '/assets/can-ded.png'}
               alt=""
-              className="w-full drop-shadow-md"
+              className={
+                can.kind === 'gold'
+                  ? 'w-full animate-pulse drop-shadow-[0_0_10px_gold] sepia'
+                  : 'w-full drop-shadow-md'
+              }
             />
           </button>
         )
@@ -485,7 +586,7 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
         </span>
       ))}
 
-      {/* shop — same three Arseniys for both players, no pill/ads (fair!) */}
+      {/* shop — same Arseniys + pill for both players (fair!) */}
       <div className="absolute bottom-1 left-1/2 z-30 flex -translate-x-1/2 items-end gap-2 md:bottom-2 md:gap-3">
         {PLAYER_UNITS.map((unit) => {
           const affordable = s.currency >= unit.cost
@@ -495,12 +596,18 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
               type="button"
               onClick={() => buyUnit(unit)}
               disabled={!affordable}
-              className={`flex flex-col items-center gap-0.5 rounded-xl border-4 border-border bg-card p-1 shadow-[3px_3px_0_#1a1a2e] transition-transform md:p-1.5 ${
+              className={`flex flex-col items-center gap-0.5 rounded-xl border-4 bg-card p-1 shadow-[3px_3px_0_#1a1a2e] transition-transform md:p-1.5 ${
+                pillOwned && affordable ? 'border-primary ring-2 ring-primary' : 'border-border'
+              } ${
                 affordable
                   ? 'hover:scale-105 active:translate-y-0.5'
                   : 'cursor-not-allowed opacity-50 grayscale'
               } ${isTouch ? 'touch-none' : ''}`}
-              aria-label={`Призвать: ${unit.name} за ${unit.cost}`}
+              aria-label={
+                pillOwned
+                  ? `Призвать СУПЕР-версию: ${unit.name} за ${unit.cost}`
+                  : `Призвать: ${unit.name} за ${unit.cost}`
+              }
             >
               <span className="text-base font-black leading-none text-card-foreground md:text-lg">
                 {unit.cost}
@@ -513,7 +620,51 @@ export function PvpBattlefield({ matchId, onExit }: PvpBattlefieldProps) {
             </button>
           )
         })}
+
+        {/* pill card: buy → next Arseniy becomes SUPER; click again to refund */}
+        <button
+          type="button"
+          onClick={togglePill}
+          disabled={!pillOwned && s.currency < PILL_COST}
+          className={`flex flex-col items-center gap-0.5 rounded-xl border-4 bg-card p-1 shadow-[3px_3px_0_#1a1a2e] transition-transform md:p-1.5 ${
+            pillOwned ? 'border-primary' : 'border-border'
+          } ${
+            pillOwned || s.currency >= PILL_COST
+              ? 'hover:scale-105 active:translate-y-0.5'
+              : 'cursor-not-allowed opacity-50 grayscale'
+          } ${isTouch ? 'touch-none' : ''}`}
+          aria-label={
+            pillOwned
+              ? 'Таблетка активна! Купи Арсения для супер-версии (клик — отмена)'
+              : `Купить таблетку за ${PILL_COST}`
+          }
+        >
+          <span className="text-base font-black leading-none text-card-foreground md:text-lg">
+            {pillOwned ? 'Актив!' : PILL_COST}
+          </span>
+          <img
+            src={pillOwned ? '/assets/pill.png' : '/assets/pill-button.png'}
+            alt=""
+            className={`h-12 w-12 rounded-md object-contain sm:h-14 sm:w-14 md:h-16 md:w-16 ${
+              pillOwned ? 'super-glow animate-pulse' : ''
+            }`}
+          />
+        </button>
       </div>
+
+      {/* pill hint */}
+      {pillOwned && !finished && (
+        <div className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-lg border-2 border-primary bg-card px-3 py-1 text-xs font-black text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:text-sm">
+          Купи Арсения — он станет СУПЕР!
+        </div>
+      )}
+
+      {/* event banner: can rain / sudden death */}
+      {banner && !finished && (
+        <div className="pointer-events-none absolute left-1/2 top-[28%] z-40 -translate-x-1/2 animate-bounce whitespace-nowrap rounded-xl border-4 border-border bg-destructive px-6 py-2 text-xl font-black text-destructive-foreground shadow-[4px_4px_0_#1a1a2e] md:text-3xl">
+          {banner}
+        </div>
+      )}
 
       {/* result overlay */}
       {finished && (
