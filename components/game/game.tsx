@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { LEVELS } from '@/lib/game-data'
 import { getMaxUnlockedLevel, setMaxUnlockedLevel } from '@/lib/progress'
 import { playMusic, playMusicFile, playSound } from '@/lib/sound'
 import { AccountScreen } from './account-screen'
@@ -14,6 +13,7 @@ import { LeaderboardScreen } from './leaderboard-screen'
 import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
 import { SettingsScreen } from './settings-screen'
+import { SoundsScreen } from './sounds-screen'
 
 type Screen =
   | 'menu'
@@ -22,6 +22,7 @@ type Screen =
   | 'settings'
   | 'account'
   | 'leaders'
+  | 'sounds'
   | 'playing'
   | 'ended'
   | 'finale'
@@ -65,7 +66,7 @@ export function Game() {
     (r: 'victory' | 'defeat') => {
       setResult(r)
       playSound(r === 'victory' ? 'victory' : 'defeat')
-      // Level 7 is secret: it never unlocks by progression, only by code
+      // Levels 7 (secret) and 8 (endless) never unlock the next level
       if (r === 'victory' && level < 6) {
         const next = level + 1
         setMaxLevel((m) => Math.max(m, next))
@@ -92,8 +93,11 @@ export function Game() {
             onSettings={() => setScreen('settings')}
             onAccount={() => setScreen('account')}
             onLeaders={() => setScreen('leaders')}
+            onSounds={() => setScreen('sounds')}
           />
         )}
+
+        {screen === 'sounds' && <SoundsScreen onBack={() => setScreen('menu')} />}
 
         {screen === 'account' && <AccountScreen onBack={() => setScreen('menu')} />}
 
@@ -130,7 +134,7 @@ export function Game() {
               <EndScreen
                 result={result}
                 level={level}
-                hasNextLevel={level < LEVELS.length}
+                hasNextLevel={level < 6}
                 onRetry={() => startLevel(level)}
                 onNextLevel={() => startLevel(level + 1)}
                 onMenu={() => setScreen('menu')}

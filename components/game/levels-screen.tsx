@@ -18,6 +18,7 @@ const LEVEL_PREVIEWS: Record<number, { image: string; hint: string }> = {
   5: { image: '/assets/enemy-base.png', hint: 'Финальная битва!' },
   6: { image: '/assets/red-arseniy.png', hint: 'ЖЕСТЬ. Просто жесть.' },
   7: { image: '/assets/vitalik.png', hint: 'Шесть-семь!' },
+  8: { image: '/assets/arseniy-os.png', hint: 'Сколько волн переживёшь?' },
 }
 
 export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsScreenProps) {
@@ -41,8 +42,9 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
       <div className="flex flex-wrap items-stretch justify-center gap-4 md:gap-6">
         {LEVELS.map((lvl) => {
           const isSecret = lvl.level === 7
-          // Level 7 is always shown but only unlocks via the secret code
-          const locked = isSecret ? !secretOpen : lvl.level > maxUnlockedLevel
+          const isEndless = lvl.level === 8
+          // Level 7 unlocks via code; endless mode is always open
+          const locked = isSecret ? !secretOpen : isEndless ? false : lvl.level > maxUnlockedLevel
           const preview = LEVEL_PREVIEWS[lvl.level]
           return (
             <button
@@ -51,7 +53,7 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
               onClick={() => !locked && onStartLevel(lvl.level)}
               disabled={locked}
               className={`flex w-40 flex-col items-center gap-2 rounded-2xl border-4 bg-card p-4 shadow-[5px_5px_0_#1a1a2e] transition-transform sm:w-48 ${
-                isSecret ? 'border-secondary' : 'border-border'
+                isSecret ? 'border-secondary' : isEndless ? 'border-primary' : 'border-border'
               } ${
                 locked
                   ? 'cursor-not-allowed opacity-60 grayscale'

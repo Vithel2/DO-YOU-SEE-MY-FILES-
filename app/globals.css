@@ -172,3 +172,18 @@ body {
 .idle-bob-delay {
   animation-delay: 0.9s;
 }
+
+/* Non-stop small jump for the little evil Driggert clone (level 6) */
+@keyframes mini-jump {
+  0%,
+  100% {
+    transform: translateY(0) scaleX(-1);
+  }
+  50% {
+    transform: translateY(-10px) scaleX(-1);
+  }
+}
+
+.mini-jump {
+  animation: mini-jump 0.55s ease-in-out infinite;
+}
