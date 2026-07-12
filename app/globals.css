@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --font-sans: 'Rubik', 'Rubik Fallback', sans-serif;
+
+  --color-background: #4db8e8;
+  --color-foreground: #1a1a2e;
+  --color-card: #f5f0e6;
+  --color-card-foreground: #1a1a2e;
+  --color-primary: #ffd800;
+  --color-primary-foreground: #1a1a2e;
+  --color-secondary: #2e8b2e;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #8a8a9a;
+  --color-destructive: #d64545;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #1a1a2e;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+@keyframes float-up {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+}
+
+.float-up {
+  animation: float-up 0.9s ease-out forwards;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.shake {
+  animation: shake 0.25s ease-in-out;
+}
+
+@keyframes super-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px #ffd800) drop-shadow(0 0 14px #ffd800);
+  }
+  50% {
+    filter: drop-shadow(0 0 12px #ffb700) drop-shadow(0 0 24px #ffd800);
+  }
+}
+
+.super-glow {
+  animation: super-glow 1.2s ease-in-out infinite;
+}
+
+/* --- Level 6 chaos --- */
+
+@keyframes chaos-pulse {
+  0%,
+  100% {
+    background: rgba(214, 69, 69, 0.12);
+  }
+  46% {
+    background: rgba(214, 69, 69, 0.28);
+  }
+  50% {
+    /* lightning-like red flash */
+    background: rgba(255, 60, 40, 0.45);
+  }
+  54% {
+    background: rgba(214, 69, 69, 0.28);
+  }
+}
+
+.chaos-overlay {
+  animation: chaos-pulse 6s ease-in-out infinite;
+}
+
+@keyframes chaos-shake {
+  0%,
+  88%,
+  100% {
+    transform: translate(0, 0);
+  }
+  90% {
+    transform: translate(-3px, 2px);
+  }
+  92% {
+    transform: translate(3px, -2px);
+  }
+  94% {
+    transform: translate(-2px, -2px);
+  }
+  96% {
+    transform: translate(2px, 2px);
+  }
+  98% {
+    transform: translate(-1px, 1px);
+  }
+}
+
+.chaos-shake {
+  animation: chaos-shake 5s linear infinite;
+}
+
+/* Radiation after Vadim's nuke: pulsing green filter */
+@keyframes radiation-pulse {
+  0%,
+  100% {
+    background: rgba(60, 200, 40, 0.22);
+  }
+  50% {
+    background: rgba(90, 230, 50, 0.34);
+  }
+}
+
+.radiation-overlay {
+  animation: radiation-pulse 2.4s ease-in-out infinite;
+  mix-blend-mode: multiply;
+}
+
+/* Boss menace: slow red glow pulse */
+@keyframes boss-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 8px rgba(255, 32, 32, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(255, 32, 32, 0.95));
+  }
+}
+
+.boss-pulse {
+  animation: boss-pulse 2s ease-in-out infinite;
+}
+
+/* Gentle idle "breathing" bob for menu characters */
+@keyframes idle-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--bob-rotate, 0deg)) scale(1);
+  }
+  50% {
+    transform: translateY(-7px) rotate(var(--bob-rotate, 0deg)) scale(1.03);
+  }
+}
+
+.idle-bob {
+  animation: idle-bob 2.6s ease-in-out infinite;
+}
+
+.idle-bob-slow {
+  animation: idle-bob 3.4s ease-in-out infinite;
+}
+
+.idle-bob-delay {
+  animation-delay: 0.9s;
+}
