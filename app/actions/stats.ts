@@ -17,6 +17,8 @@ export interface MatchStats {
   victory: boolean
   superArseniys: number
   level: number
+  /** Endless mode: waves survived this run (0 for normal levels) */
+  wavesSurvived?: number
 }
 
 /**
@@ -31,7 +33,10 @@ export async function saveMatchStats(stats: MatchStats) {
   const kills = Math.max(0, Math.min(500, Math.floor(stats.enemiesKilled)))
   const earned = Math.max(0, Math.min(100000, Math.floor(stats.currencyEarned)))
   const supers = Math.max(0, Math.min(100, Math.floor(stats.superArseniys)))
-  const level = Math.max(1, Math.min(7, Math.floor(stats.level)))
+  const level = Math.max(1, Math.min(8, Math.floor(stats.level)))
+  // endless mode is not a "real" level for maxLevel purposes
+  const maxLevel = level === 8 ? 1 : level
+  const waves = Math.max(0, Math.min(1000, Math.floor(stats.wavesSurvived ?? 0)))
 
   await db
     .insert(playerStats)
@@ -41,7 +46,8 @@ export async function saveMatchStats(stats: MatchStats) {
       currencyEarned: earned,
       victories: stats.victory ? 1 : 0,
       superArseniys: supers,
-      maxLevel: level,
+      maxLevel,
+      wavesSurvived: waves,
     })
     .onConflictDoUpdate({
       target: playerStats.userId,
@@ -50,7 +56,8 @@ export async function saveMatchStats(stats: MatchStats) {
         currencyEarned: sql`${playerStats.currencyEarned} + ${earned}`,
         victories: sql`${playerStats.victories} + ${stats.victory ? 1 : 0}`,
         superArseniys: sql`${playerStats.superArseniys} + ${supers}`,
-        maxLevel: sql`GREATEST(${playerStats.maxLevel}, ${level})`,
+        maxLevel: sql`GREATEST(${playerStats.maxLevel}, ${maxLevel})`,
+        wavesSurvived: sql`GREATEST(${playerStats.wavesSurvived}, ${waves})`,
         updatedAt: sql`now()`,
       },
     })
@@ -58,7 +65,12 @@ export async function saveMatchStats(stats: MatchStats) {
   return { saved: true }
 }
 
-export type LeaderboardCategory = 'enemiesKilled' | 'currencyEarned' | 'victories' | 'superArseniys'
+export type LeaderboardCategory =
+  | 'enemiesKilled'
+  | 'currencyEarned'
+  | 'victories'
+  | 'superArseniys'
+  | 'wavesSurvived'
 
 export interface LeaderboardRow {
   name: string
@@ -78,6 +90,7 @@ const CATEGORY_COLUMNS = {
   currencyEarned: playerStats.currencyEarned,
   victories: playerStats.victories,
   superArseniys: playerStats.superArseniys,
+  wavesSurvived: playerStats.wavesSurvived,
 } as const
 
 /**

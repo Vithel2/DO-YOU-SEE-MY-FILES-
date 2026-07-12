@@ -64,5 +64,7 @@ export const playerStats = pgTable('player_stats', {
   victories: integer('victories').notNull().default(0),
   superArseniys: integer('superArseniys').notNull().default(0),
   maxLevel: integer('maxLevel').notNull().default(1),
+  /** Endless mode record: max waves survived in one run */
+  wavesSurvived: integer('wavesSurvived').notNull().default(0),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })

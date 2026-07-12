@@ -4,8 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   AD_COOLDOWN_MS,
+  AD_FULL_REWARD,
   AD_REWARD,
   BOSS_UNIT,
+  ENDLESS_LATE_ENEMIES,
+  ENDLESS_WAVE_PAUSE_S,
   CAN_DED_VALUE,
   CAN_FALL_DURATION_MS,
   CAN_GROUND_LIFETIME_MS,
@@ -21,6 +24,7 @@ import {
   LASER_FIGHTER_DAMAGE,
   LASER_INTERVAL_S,
   LEVELS,
+  MINI_DRIGGERT_UNIT,
   MINI_RED_UNIT,
   NUKE_DAMAGE,
   PILL_COST,
@@ -185,6 +189,7 @@ export function Battlefield({
     car: ReturnType<typeof createLoop>
     radiation: ReturnType<typeof createLoop>
     nuke: ReturnType<typeof createLoop>
+    miniDriggert: ReturnType<typeof createLoop>
   } | null>(null)
   if (loopsRef.current === null) {
     loopsRef.current = {
@@ -193,14 +198,20 @@ export function Battlefield({
       radiation: createLoop('radiation', 0.5),
       // one-shot but stoppable: must not keep playing after quit/win/restart
       nuke: createLoop('nuke', 0.9, false),
+      // little evil Driggert clone talks non-stop while alive
+      miniDriggert: createLoop('voice-driggert-clone', 0.8),
     }
   }
+  /** is the mini Driggert voice loop currently playing */
+  const miniDriggertVoiceOnRef = useRef(false)
   const stopAllBossSounds = useCallback(() => {
     const loops = loopsRef.current
     loops?.voice.stop()
     loops?.car.stop()
     loops?.radiation.stop()
     loops?.nuke.stop()
+    loops?.miniDriggert.stop()
+    miniDriggertVoiceOnRef.current = false
   }, [])
   useEffect(() => {
     // stops everything on unmount too (quit to menu / level restart)
@@ -213,7 +224,14 @@ export function Battlefield({
   const [now, setNow] = useState(() => Date.now())
   const resultSentRef = useRef(false)
   // per-match stats for the leaderboards
-  const matchStatsRef = useRef({ enemiesKilled: 0, currencyEarned: 0, superArseniys: 0 })
+  const matchStatsRef = useRef({
+    enemiesKilled: 0,
+    currencyEarned: 0,
+    superArseniys: 0,
+    wavesSurvived: 0,
+  })
+  // Endless mode wave state
+  const waveRef = useRef({ wave: 0, active: false, nextWaveAtS: 3 })
 
   /** Quit mid-battle: still save whatever was earned so far (no-op for guests) */
   const handleQuit = useCallback(() => {
@@ -315,7 +333,44 @@ export function Battlefield({
             nowMs - c.spawnedAt < CAN_FALL_DURATION_MS + CAN_GROUND_LIFETIME_MS,
         )
 
-        if (!config.chaos) {
+        if (config.endless) {
+          // === ENDLESS MODE: survive waves that keep growing ===
+          const w = waveRef.current
+          if (!w.active && elapsedRef.current >= w.nextWaveAtS) {
+            w.active = true
+            w.wave += 1
+            const count = 2 + w.wave
+            let pool = config.enemyPool.map((e) => e.id)
+            // from wave 5 the «67» enemies join the party
+            if (w.wave >= 5) pool = pool.concat(ENDLESS_LATE_ENEMIES)
+            const hpScale = 1 + Math.min(3, w.wave * 0.08)
+            for (let i = 0; i < count; i++) {
+              const id = pool[Math.floor(Math.random() * pool.length)]
+              const type = ENEMY_UNITS[id]
+              if (!type) continue
+              markCharacterMet(type.id)
+              const hp = Math.round(type.hp * hpScale)
+              s.fighters.push({
+                uid: nextUid(),
+                type,
+                side: 'enemy',
+                x: ENEMY_SPAWN_X + (i % 4) * 2,
+                hp,
+                maxHp: hp,
+                attackCooldown: 0,
+                fighting: false,
+              })
+            }
+          } else if (
+            w.active &&
+            !s.fighters.some((f) => f.side === 'enemy' && f.hp > 0)
+          ) {
+            // wave cleared — record it and schedule the next one
+            w.active = false
+            matchStatsRef.current.wavesSurvived = w.wave
+            w.nextWaveAtS = elapsedRef.current + ENDLESS_WAVE_PAUSE_S
+          }
+        } else if (!config.chaos) {
           // --- spawn enemies (normal levels) ---
           enemySpawnTimerRef.current += dt
           if (enemySpawnTimerRef.current >= config.spawnIntervalMs / 1000) {
@@ -417,9 +472,10 @@ export function Battlefield({
           // --- radiation aftermath ---
           const radiationActive = elapsed < boss.radiationUntilS
           if (radiationActive) {
-            s.playerBaseHp -= 2.5 * dt
+            // radiation burns the base for 3+ HP per second
+            s.playerBaseHp -= 3.5 * dt
             for (const f of s.fighters) {
-              if (f.side === 'player') f.hp -= 1.5 * dt
+              if (f.side === 'player') f.hp -= 3 * dt
               else f.hp = Math.min(f.maxHp, f.hp + 2 * dt) // radiation heals enemies
             }
           } else if (boss.radiationUntilS > 0 && elapsed >= boss.radiationUntilS) {
@@ -506,9 +562,42 @@ export function Battlefield({
 
         const before = s.fighters.length
         const enemyDeaths = s.fighters.filter((f) => f.side === 'enemy' && f.hp <= 0).length
+        // Level 6: a dead mini red Arseniy leaves behind a little evil
+        // Driggert clone that jumps non-stop and talks until he dies
+        const driggertSpawns: number[] = config.chaos
+          ? s.fighters
+              .filter((f) => f.type.id === MINI_RED_UNIT.id && f.hp <= 0)
+              .map((f) => f.x)
+          : []
         s.fighters = s.fighters.filter((f) => f.hp > 0)
         if (s.fighters.length < before) playDeathSound()
         matchStatsRef.current.enemiesKilled += enemyDeaths
+        for (const x of driggertSpawns) {
+          markCharacterMet(MINI_DRIGGERT_UNIT.id)
+          s.fighters.push({
+            uid: nextUid(),
+            type: MINI_DRIGGERT_UNIT,
+            side: 'enemy',
+            x,
+            hp: MINI_DRIGGERT_UNIT.hp,
+            maxHp: MINI_DRIGGERT_UNIT.hp,
+            attackCooldown: 0,
+            fighting: false,
+          })
+        }
+        // voice loop: on while at least one mini Driggert clone is alive
+        if (config.chaos) {
+          const anyMiniDriggert = s.fighters.some(
+            (f) => f.type.id === MINI_DRIGGERT_UNIT.id && f.hp > 0,
+          )
+          if (anyMiniDriggert && !miniDriggertVoiceOnRef.current) {
+            miniDriggertVoiceOnRef.current = true
+            loopsRef.current?.miniDriggert.start()
+          } else if (!anyMiniDriggert && miniDriggertVoiceOnRef.current) {
+            miniDriggertVoiceOnRef.current = false
+            loopsRef.current?.miniDriggert.stop()
+          }
+        }
 
         // --- help plashka trigger (level 2+, critical situation) ---
         if (
@@ -576,9 +665,10 @@ export function Battlefield({
       s.playerBaseHp = Math.min(s.playerMaxHp, s.playerBaseHp + HEAL_CAN_VALUE)
       text = `+${Math.max(0, Math.round(healed))} HP`
     } else {
-      // Level 6 pays out much more per can — the boss fight is expensive
+      // Level 6 pays out x3 per can; level 7 («67») pays out x2
       const value =
-        (can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE) * (config.chaos ? 3 : 1)
+        (can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE) *
+        (config.chaos ? 3 : config.sixtySeven ? 2 : 1)
       s.currency += value
       matchStatsRef.current.currencyEarned += value
       text = `+${value}`
@@ -596,7 +686,7 @@ export function Battlefield({
         (ft) => ft.uid !== textUid,
       )
     }, 900)
-  }, [config.chaos])
+  }, [config.chaos, config.sixtySeven])
 
   /** Buy the Driggert guard (level 6 only): stands by our base and tanks hits */
   const buyGuard = useCallback(() => {
@@ -806,6 +896,17 @@ export function Battlefield({
               </div>
             )}
           </div>
+        ) : config.endless ? (
+          <div className="rounded-lg border-2 border-primary bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm">
+            {waveRef.current.wave === 0
+              ? 'Приготовься...'
+              : waveRef.current.active
+                ? `ВОЛНА ${waveRef.current.wave}`
+                : `Волна ${waveRef.current.wave} пережита! Следующая...`}
+            <span className="ml-2 text-muted-foreground">
+              Пережито: {matchStatsRef.current.wavesSurvived}
+            </span>
+          </div>
         ) : (
           <div className="rounded-lg border-2 border-border bg-card px-3 py-1.5 text-xs font-bold text-card-foreground shadow-[2px_2px_0_#1a1a2e] md:px-4 md:text-sm">
             {config.name}
@@ -852,9 +953,9 @@ export function Battlefield({
         />
       </div>
 
-      {/* Enemy base */}
+      {/* Enemy base (invincible in endless mode — no HP bar) */}
       <div className="absolute z-10" style={{ right: '1%', bottom: '18%', width: '14%' }}>
-        {!config.chaos && (
+        {!config.chaos && !config.endless && (
           <div className="mb-1 h-2.5 w-full overflow-hidden rounded-full border border-border bg-card">
             <div
               className="h-full bg-destructive transition-all"
@@ -1005,7 +1106,9 @@ export function Battlefield({
             alt={f.type.name}
             className={`w-full object-contain object-bottom ${f.fighting ? 'shake' : ''} ${
               f.side === 'enemy' ? '-scale-x-100' : ''
-            } ${f.type.isSuper ? 'super-glow' : ''}`}
+            } ${f.type.isSuper ? 'super-glow' : ''} ${
+              f.type.id === MINI_DRIGGERT_UNIT.id ? 'mini-jump' : ''
+            }`}
           />
         </div>
       ))}
@@ -1135,7 +1238,8 @@ export function Battlefield({
             )
           })()}
 
-        {/* Pill card */}
+        {/* Pill card — available from level 2 */}
+        {config.level >= 2 && (
         <div className="relative flex flex-col items-center">
           {pillOwned && !pillDrag && (
             <button
@@ -1177,6 +1281,7 @@ export function Battlefield({
             />
           </button>
         </div>
+        )}
       </div>
 
       {/* Dragged pill following the pointer — rendered in a portal to
@@ -1250,8 +1355,21 @@ export function Battlefield({
 
       {adOpen && (
         <AdModal
-          onFinished={() => {
+          partialReward={AD_REWARD}
+          onPartial={() => {
             stateRef.current.currency += AD_REWARD
+            matchStatsRef.current.currencyEarned += AD_REWARD
+            setAdOpen(false)
+            setAdReadyAt(Date.now() + AD_COOLDOWN_MS)
+          }}
+          onFull={() => {
+            // full 3:21 watch: 321 currency + a free pill as the bonus
+            stateRef.current.currency += AD_FULL_REWARD
+            matchStatsRef.current.currencyEarned += AD_FULL_REWARD
+            if (config.level >= 2 && !pillOwnedRef.current) {
+              pillOwnedRef.current = true
+              setPillOwned(true)
+            }
             setAdOpen(false)
             setAdReadyAt(Date.now() + AD_COOLDOWN_MS)
           }}
@@ -1261,8 +1379,20 @@ export function Battlefield({
 
       {helpAdOpen && (
         <AdModal
-          onFinished={() => {
+          partialReward={HELP_REWARD}
+          onPartial={() => {
             stateRef.current.currency += HELP_REWARD
+            matchStatsRef.current.currencyEarned += HELP_REWARD
+            setHelpAdOpen(false)
+            setHelpOpen(false)
+          }}
+          onFull={() => {
+            stateRef.current.currency += AD_FULL_REWARD
+            matchStatsRef.current.currencyEarned += AD_FULL_REWARD
+            if (config.level >= 2 && !pillOwnedRef.current) {
+              pillOwnedRef.current = true
+              setPillOwned(true)
+            }
             setHelpAdOpen(false)
             setHelpOpen(false)
           }}
