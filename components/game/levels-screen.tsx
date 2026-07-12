@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
-import { is67Unlocked } from '@/lib/progress'
+import { is67Unlocked, isShampooUnlocked } from '@/lib/progress'
 
 interface LevelsScreenProps {
   maxUnlockedLevel: number
@@ -19,12 +19,21 @@ const LEVEL_PREVIEWS: Record<number, { image: string; hint: string }> = {
   6: { image: '/assets/red-arseniy.png', hint: 'ЖЕСТЬ. Просто жесть.' },
   7: { image: '/assets/vitalik.png', hint: 'Шесть-семь!' },
   8: { image: '/assets/arseniy-os.png', hint: 'Сколько волн переживёшь?' },
+  9: { image: '/assets/shampoo.png', hint: 'ХОРРОР. Беги от шампуня!' },
+}
+
+/** The secret horror level is not in LEVELS — it's a separate game mode */
+const SHAMPOO_LEVEL = {
+  level: 9,
+  name: 'Саша VS Шампунь',
 }
 
 export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsScreenProps) {
   const [secretOpen, setSecretOpen] = useState(false)
+  const [shampooOpen, setShampooOpen] = useState(false)
   useEffect(() => {
     setSecretOpen(is67Unlocked())
+    setShampooOpen(isShampooUnlocked())
   }, [])
 
   return (
@@ -40,11 +49,18 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
       </h1>
 
       <div className="flex flex-wrap items-stretch justify-center gap-4 md:gap-6">
-        {LEVELS.map((lvl) => {
+        {[...LEVELS, SHAMPOO_LEVEL].map((lvl) => {
+          const isShampoo = lvl.level === 9
           const isSecret = lvl.level === 7
           const isEndless = lvl.level === 8
-          // Level 7 unlocks via code; endless mode is always open
-          const locked = isSecret ? !secretOpen : isEndless ? false : lvl.level > maxUnlockedLevel
+          // Level 7 and the shampoo horror unlock via codes; endless is always open
+          const locked = isSecret
+            ? !secretOpen
+            : isShampoo
+              ? !shampooOpen
+              : isEndless
+                ? false
+                : lvl.level > maxUnlockedLevel
           const preview = LEVEL_PREVIEWS[lvl.level]
           return (
             <button
@@ -53,7 +69,13 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
               onClick={() => !locked && onStartLevel(lvl.level)}
               disabled={locked}
               className={`flex w-40 flex-col items-center gap-2 rounded-2xl border-4 bg-card p-4 shadow-[5px_5px_0_#1a1a2e] transition-transform sm:w-48 ${
-                isSecret ? 'border-secondary' : isEndless ? 'border-primary' : 'border-border'
+                isSecret
+                  ? 'border-secondary'
+                  : isShampoo
+                    ? 'border-destructive'
+                    : isEndless
+                      ? 'border-primary'
+                      : 'border-border'
               } ${
                 locked
                   ? 'cursor-not-allowed opacity-60 grayscale'
@@ -79,7 +101,9 @@ export function LevelsScreen({ maxUnlockedLevel, onStartLevel, onBack }: LevelsS
                 {locked
                   ? isSecret
                     ? 'Код: число деградации'
-                    : 'Пройди предыдущий уровень!'
+                    : isShampoo
+                      ? 'СЕКРЕТНО. Код: кто жоско воняет?'
+                      : 'Пройди предыдущий уровень!'
                   : preview?.hint}
               </span>
               {!locked && (

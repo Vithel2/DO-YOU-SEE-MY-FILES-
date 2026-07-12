@@ -63,13 +63,15 @@ export function GameStage({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // Stretch to fill the whole window: X and Y scale independently so there
+  // are no dark side bars. The stretch is mild on typical screens.
   return (
     <div className="flex h-dvh w-full items-center justify-center overflow-hidden bg-[#1a1a2e]">
       <div
         style={{
           width: STAGE_W,
           height: STAGE_H,
-          transform: `scale(${stage.scale})`,
+          transform: `scale(${stage.viewportW / STAGE_W}, ${stage.viewportH / STAGE_H})`,
           transformOrigin: 'center center',
           flexShrink: 0,
         }}

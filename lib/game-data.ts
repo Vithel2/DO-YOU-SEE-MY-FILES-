@@ -375,6 +375,13 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
     description: 'Шесть-семь! Крепкий боец уровня 67.',
     side: 'enemy',
   },
+  {
+    id: 'shampoo',
+    name: 'ШАМПУНЬ',
+    image: '/assets/shampoo.png',
+    description: 'СЕКРЕТНО. Гонится за Сашей, чтобы помыть его. Не остановится НИКОГДА.',
+    side: 'enemy',
+  },
 ]
 
 export interface LevelConfig {

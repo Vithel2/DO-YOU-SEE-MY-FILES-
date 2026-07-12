@@ -80,10 +80,24 @@ export function is67Unlocked(): boolean {
   }
 }
 
+/* --- Secret horror level «Саша VS Шампунь» (код: Вонючка) --- */
+
+const SHAMPOO_KEY = 'avd-shampoo'
+
+export function isShampooUnlocked(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(SHAMPOO_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 /**
  * Try to apply an entered code. Returns true if the code was accepted.
  * VMCT: dev mode — unlocks everything and gives a pile of money in battles.
  * 67: unlocks the secret level 7.
+ * ВОНЮЧКА: unlocks the secret horror level «Саша VS Шампунь».
  */
 export function tryApplyCode(code: string, totalLevels: number): boolean {
   const c = code.trim().toUpperCase()
@@ -95,11 +109,20 @@ export function tryApplyCode(code: string, totalLevels: number): boolean {
     }
     return true
   }
+  if (c === 'ВОНЮЧКА') {
+    try {
+      window.localStorage.setItem(SHAMPOO_KEY, '1')
+    } catch {
+      // storage unavailable — ignore
+    }
+    return true
+  }
   if (c !== SECRET) return false
   try {
     window.localStorage.setItem(DEV_KEY, '1')
     window.localStorage.setItem(LEVEL_KEY, String(totalLevels))
     window.localStorage.setItem(L67_KEY, '1')
+    window.localStorage.setItem(SHAMPOO_KEY, '1')
   } catch {
     // storage unavailable — ignore
   }

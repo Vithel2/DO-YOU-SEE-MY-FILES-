@@ -14,6 +14,7 @@ import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
 import { NewsScreen } from './news-screen'
 import { SettingsScreen } from './settings-screen'
+import { ShampooLevel } from './shampoo-level'
 import { SoundsScreen } from './sounds-screen'
 
 type Screen =
@@ -42,9 +43,11 @@ export function Game() {
     setMaxLevel(getMaxUnlockedLevel())
   }, [])
 
-  // background music per screen; level 7 has its own song (a bit quieter)
+  // background music per screen; level 7 has its own song (a bit quieter);
+  // the secret horror level 9 manages its own creepy silence
   useEffect(() => {
     if (screen === 'playing' && level === 7) playMusicFile('level7-song', 0.18)
+    else if (screen === 'playing' && level === 9) return
     else playMusic('menu-music')
   }, [screen, level])
 
@@ -125,7 +128,11 @@ export function Game() {
           />
         )}
 
-        {(screen === 'playing' || screen === 'ended' || screen === 'finale') && (
+        {screen === 'playing' && level === 9 && (
+          <ShampooLevel key={battleKey} onQuit={() => setScreen('menu')} />
+        )}
+
+        {(screen === 'playing' || screen === 'ended' || screen === 'finale') && level !== 9 && (
           <div className="relative h-full w-full">
             <Battlefield
               key={battleKey}

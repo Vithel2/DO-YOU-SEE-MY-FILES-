@@ -66,5 +66,7 @@ export const playerStats = pgTable('player_stats', {
   maxLevel: integer('maxLevel').notNull().default(1),
   /** Endless mode record: max waves survived in one run */
   wavesSurvived: integer('wavesSurvived').notNull().default(0),
+  /** Secret level «Саша VS Шампунь»: exclusive wins over the shampoo */
+  shampooWins: integer('shampooWins').notNull().default(0),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })

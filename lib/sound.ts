@@ -35,10 +35,13 @@ const MUSIC_TRACK_KEY = 'avd-music-track'
 
 /** Music tracks the player can pick from (settings / sounds screen) */
 export const MUSIC_TRACKS = [
-  { file: 'music', name: 'MusicForGame (классика)' },
-  { file: 'music-beta-menu', name: '02. Beta Main Menu' },
+  { file: 'music-beta-menu', name: '02. Beta Main Menu (классика)' },
+  { file: 'music', name: 'MusicForGame' },
   { file: 'music-subwoofer', name: 'Subwoofer Lullaby' },
 ] as const
+
+/** The default («classic») track — 02. Beta Main Menu */
+const DEFAULT_TRACK = 'music-beta-menu'
 
 const knownMissing = new Set<string>()
 let currentMusic: HTMLAudioElement | null = null
@@ -81,12 +84,12 @@ function readMusicVolume(): number {
 let musicVolume = readMusicVolume()
 
 function readMusicTrack(): string {
-  if (typeof window === 'undefined') return 'music'
+  if (typeof window === 'undefined') return DEFAULT_TRACK
   try {
     const raw = localStorage.getItem(MUSIC_TRACK_KEY)
-    return raw && MUSIC_TRACKS.some((t) => t.file === raw) ? raw : 'music'
+    return raw && MUSIC_TRACKS.some((t) => t.file === raw) ? raw : DEFAULT_TRACK
   } catch {
-    return 'music'
+    return DEFAULT_TRACK
   }
 }
 
