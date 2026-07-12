@@ -12,6 +12,7 @@ interface MainMenuProps {
   onLeaders: () => void
   onSounds: () => void
   onNews: () => void
+  onPvp: () => void
 }
 
 /** Random character voices that sometimes play on the start screen */
@@ -52,6 +53,7 @@ export function MainMenu({
   onLeaders,
   onSounds,
   onNews,
+  onPvp,
 }: MainMenuProps) {
   // Easter egg: click Luntik 5 times — "Я родился!"
   const luntikClicks = useRef(0)
@@ -235,6 +237,13 @@ export function MainMenu({
         >
           ИГРАТЬ
         </button>
+        <button
+          type="button"
+          onClick={onPvp}
+          className="rounded-xl border-4 border-border bg-destructive px-8 py-2.5 text-xl font-black text-destructive-foreground shadow-[5px_5px_0_#1a1a2e] transition-transform hover:scale-105 active:translate-x-1 active:translate-y-1 active:shadow-[2px_2px_0_#1a1a2e] sm:px-10 sm:text-2xl"
+        >
+          PVP: СРАЖЕНИЯ
+        </button>
         <div className="flex flex-wrap justify-center gap-2 px-2 sm:gap-3">
           <button
             type="button"
@@ -290,7 +299,7 @@ export function MainMenu({
 
       <div className="pointer-events-none absolute bottom-1 right-2 z-10 flex flex-col items-end">
         <span className="text-xs font-black text-white/90" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.22
+          Beta 1.3
         </span>
         <span className="text-[10px] font-bold text-white/70" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
           by Vithel (тт: vithel_tt)

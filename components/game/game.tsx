@@ -13,6 +13,8 @@ import { LeaderboardScreen } from './leaderboard-screen'
 import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
 import { NewsScreen } from './news-screen'
+import { PvpBattlefield } from './pvp-battlefield'
+import { PvpLobby } from './pvp-lobby'
 import { SettingsScreen } from './settings-screen'
 import { ShampooLevel } from './shampoo-level'
 import { SoundsScreen } from './sounds-screen'
@@ -26,6 +28,8 @@ type Screen =
   | 'leaders'
   | 'sounds'
   | 'news'
+  | 'pvp-lobby'
+  | 'pvp-playing'
   | 'playing'
   | 'ended'
   | 'finale'
@@ -37,6 +41,7 @@ export function Game() {
   const [tutorialSeen, setTutorialSeen] = useState(false)
   const [result, setResult] = useState<'victory' | 'defeat'>('victory')
   const [battleKey, setBattleKey] = useState(0)
+  const [pvpMatchId, setPvpMatchId] = useState<string | null>(null)
 
   // restore saved progress on the device
   useEffect(() => {
@@ -100,12 +105,35 @@ export function Game() {
             onLeaders={() => setScreen('leaders')}
             onSounds={() => setScreen('sounds')}
             onNews={() => setScreen('news')}
+            onPvp={() => setScreen('pvp-lobby')}
           />
         )}
 
         {screen === 'sounds' && <SoundsScreen onBack={() => setScreen('menu')} />}
 
         {screen === 'news' && <NewsScreen onBack={() => setScreen('menu')} />}
+
+        {screen === 'pvp-lobby' && (
+          <PvpLobby
+            onBack={() => setScreen('menu')}
+            onAccount={() => setScreen('account')}
+            onStartMatch={(matchId) => {
+              setPvpMatchId(matchId)
+              setScreen('pvp-playing')
+            }}
+          />
+        )}
+
+        {screen === 'pvp-playing' && pvpMatchId && (
+          <PvpBattlefield
+            key={pvpMatchId}
+            matchId={pvpMatchId}
+            onExit={() => {
+              setPvpMatchId(null)
+              setScreen('pvp-lobby')
+            }}
+          />
+        )}
 
         {screen === 'account' && <AccountScreen onBack={() => setScreen('menu')} />}
 

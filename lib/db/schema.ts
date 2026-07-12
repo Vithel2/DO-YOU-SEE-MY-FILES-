@@ -70,3 +70,49 @@ export const playerStats = pgTable('player_stats', {
   shampooWins: integer('shampooWins').notNull().default(0),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
 })
+
+// --- PvP tables --------------------------------------------------------------
+
+/** Elo rating per player for the PvP mode */
+export const pvpRating = pgTable('pvp_rating', {
+  userId: text('userId').primaryKey(),
+  elo: integer('elo').notNull().default(1000),
+  wins: integer('wins').notNull().default(0),
+  losses: integer('losses').notNull().default(0),
+  updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+})
+
+/**
+ * A PvP match doubles as a room/queue entry.
+ * mode: 'queue' (matchmaking) | 'public' (open room) | 'private' (code-only)
+ * status: 'waiting' → 'playing' → 'finished'
+ */
+export const pvpMatches = pgTable('pvp_matches', {
+  id: text('id').primaryKey(),
+  code: text('code').unique(),
+  status: text('status').notNull().default('waiting'),
+  mode: text('mode').notNull().default('private'),
+  hostId: text('hostId').notNull(),
+  guestId: text('guestId'),
+  hostName: text('hostName').notNull().default(''),
+  guestName: text('guestName'),
+  hostElo: integer('hostElo').notNull().default(1000),
+  guestElo: integer('guestElo'),
+  winnerId: text('winnerId'),
+  hostEloDelta: integer('hostEloDelta'),
+  guestEloDelta: integer('guestEloDelta'),
+  hostHeartbeat: timestamp('hostHeartbeat').notNull().defaultNow(),
+  guestHeartbeat: timestamp('guestHeartbeat'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+  startedAt: timestamp('startedAt'),
+  finishedAt: timestamp('finishedAt'),
+})
+
+/** Unit-purchase commands — the whole multiplayer sync happens through these */
+export const pvpCommands = pgTable('pvp_commands', {
+  id: serial('id').primaryKey(),
+  matchId: text('matchId').notNull(),
+  playerId: text('playerId').notNull(),
+  unitId: text('unitId').notNull(),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+})
