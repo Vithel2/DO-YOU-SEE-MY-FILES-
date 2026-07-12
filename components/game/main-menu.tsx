@@ -11,22 +11,33 @@ interface MainMenuProps {
   onAccount: () => void
   onLeaders: () => void
   onSounds: () => void
+  onNews: () => void
 }
 
 /** Random character voices that sometimes play on the start screen */
-const MENU_VOICES = [
-  'voice-super-arseniy',
-  'voice-zloy-vadim',
-  'voice-driggert-clone',
-  'voice-arseniy-fpu',
-  'voice-arseniy-ejp',
-  'voice-arseniy-os',
-]
+const MENU_VOICES = ['voice-super-arseniy', 'voice-driggert-clone', 'voice-zloy-vadim']
 
-/** A speech bubble shown above a character after clicking them */
-function Bubble({ text }: { text: string }) {
+/**
+ * A speech bubble shown after clicking a character.
+ * Shows above the character by default so it's never cut off by the
+ * screen edge; `below` is used for characters in the top corners.
+ */
+function Bubble({
+  text,
+  below = false,
+  align = 'center',
+}: {
+  text: string
+  below?: boolean
+  /** edge characters pin the bubble so it never goes off screen */
+  align?: 'left' | 'center' | 'right'
+}) {
+  const alignClass =
+    align === 'left' ? 'left-0' : align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'
   return (
-    <span className="absolute -bottom-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg border-2 border-border bg-card px-2 py-0.5 text-xs font-black text-card-foreground shadow-[2px_2px_0_#1a1a2e]">
+    <span
+      className={`absolute ${below ? '-bottom-6' : '-top-6'} ${alignClass} z-20 whitespace-nowrap rounded-lg border-2 border-border bg-card px-2 py-0.5 text-xs font-black text-card-foreground shadow-[2px_2px_0_#1a1a2e]`}
+    >
       {text}
     </span>
   )
@@ -40,6 +51,7 @@ export function MainMenu({
   onAccount,
   onLeaders,
   onSounds,
+  onNews,
 }: MainMenuProps) {
   // Easter egg: click Luntik 5 times — "Я родился!"
   const luntikClicks = useRef(0)
@@ -112,7 +124,7 @@ export function MainMenu({
           className="idle-bob-slow h-20 w-auto drop-shadow-lg sm:h-28 md:h-36"
           style={{ '--bob-rotate': '-6deg' } as React.CSSProperties}
         />
-        {talking === 'danil' && <Bubble text="мне чё нельзя ничё...?" />}
+        {talking === 'danil' && <Bubble text="мне чё нельзя ничё...?" align="left" />}
       </button>
       <button
         type="button"
@@ -126,7 +138,7 @@ export function MainMenu({
           className="idle-bob h-16 w-auto drop-shadow-lg sm:h-24 md:h-32"
           style={{ '--bob-rotate': '-12deg' } as React.CSSProperties}
         />
-        {talking === 'luntik' && <Bubble text="Я родился!" />}
+        {talking === 'luntik' && <Bubble text="Я родился!" below align="left" />}
       </button>
       <button
         type="button"
@@ -140,7 +152,7 @@ export function MainMenu({
           className="idle-bob idle-bob-delay h-16 w-auto drop-shadow-lg sm:h-24 md:h-32"
           style={{ '--bob-rotate': '12deg' } as React.CSSProperties}
         />
-        {talking === 'sasha' && <Bubble text="ты чё офигел?" />}
+        {talking === 'sasha' && <Bubble text="ты чё офигел?" below align="right" />}
       </button>
       <button
         type="button"
@@ -154,7 +166,7 @@ export function MainMenu({
           className="idle-bob-slow idle-bob-delay h-24 w-auto drop-shadow-lg sm:h-32 md:h-44"
           style={{ '--bob-rotate': '6deg' } as React.CSSProperties}
         />
-        {talking === 'driggert' && <Bubble text="поплачь давай!" />}
+        {talking === 'driggert' && <Bubble text="поплачь давай!" align="right" />}
       </button>
 
       <header className="z-10 flex flex-col items-center gap-2 px-4">
@@ -176,10 +188,7 @@ export function MainMenu({
       <div className="z-10 flex items-end justify-center gap-4 px-4 sm:gap-8">
         <button
           type="button"
-          onClick={() => {
-            say('arseniy-ezhp')
-            playFile('voice-arseniy-ejp', 0.8)
-          }}
+          onClick={() => say('arseniy-ezhp')}
           className="relative cursor-pointer border-0 bg-transparent p-0"
           aria-label="Арсений из ЭЖП"
         >
@@ -188,14 +197,11 @@ export function MainMenu({
             alt="Арсений из ЭЖП"
             className="idle-bob h-24 w-auto drop-shadow-lg sm:h-32 md:h-44"
           />
-          {talking === 'arseniy-ezhp' && <Bubble text="Фильм про Уживитик 2 не выйдё!" />}
+          {talking === 'arseniy-ezhp' && <Bubble text="вы не поверите..." />}
         </button>
         <button
           type="button"
-          onClick={() => {
-            say('arseniy-os')
-            playFile('voice-arseniy-os', 0.8)
-          }}
+          onClick={() => say('arseniy-os')}
           className="relative cursor-pointer border-0 bg-transparent p-0"
           aria-label="Арсений из Очень Страшно"
         >
@@ -208,10 +214,7 @@ export function MainMenu({
         </button>
         <button
           type="button"
-          onClick={() => {
-            say('arseniy-fpu')
-            playFile('voice-arseniy-fpu', 0.8)
-          }}
+          onClick={() => say('arseniy-fpu')}
           className="relative cursor-pointer border-0 bg-transparent p-0"
           aria-label="Арсений из Фильма про Убийцу"
         >
@@ -263,6 +266,13 @@ export function MainMenu({
           </button>
           <button
             type="button"
+            onClick={onNews}
+            className="rounded-lg border-2 border-border bg-card px-4 py-2 text-sm font-bold text-card-foreground shadow-[3px_3px_0_#1a1a2e] transition-transform hover:scale-105 sm:px-6 sm:text-lg"
+          >
+            Новости
+          </button>
+          <button
+            type="button"
             onClick={onAccount}
             className="rounded-lg border-2 border-border bg-card px-4 py-2 text-sm font-bold text-card-foreground shadow-[3px_3px_0_#1a1a2e] transition-transform hover:scale-105 sm:px-6 sm:text-lg"
           >
@@ -280,7 +290,7 @@ export function MainMenu({
 
       <div className="pointer-events-none absolute bottom-1 right-2 z-10 flex flex-col items-end">
         <span className="text-xs font-black text-white/90" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.2
+          Beta 1.21
         </span>
         <span className="text-[10px] font-bold text-white/70" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
           by Vithel (тт: vithel_tt)

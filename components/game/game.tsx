@@ -12,6 +12,7 @@ import { GameStage } from './game-stage'
 import { LeaderboardScreen } from './leaderboard-screen'
 import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
+import { NewsScreen } from './news-screen'
 import { SettingsScreen } from './settings-screen'
 import { SoundsScreen } from './sounds-screen'
 
@@ -23,6 +24,7 @@ type Screen =
   | 'account'
   | 'leaders'
   | 'sounds'
+  | 'news'
   | 'playing'
   | 'ended'
   | 'finale'
@@ -94,10 +96,13 @@ export function Game() {
             onAccount={() => setScreen('account')}
             onLeaders={() => setScreen('leaders')}
             onSounds={() => setScreen('sounds')}
+            onNews={() => setScreen('news')}
           />
         )}
 
         {screen === 'sounds' && <SoundsScreen onBack={() => setScreen('menu')} />}
+
+        {screen === 'news' && <NewsScreen onBack={() => setScreen('menu')} />}
 
         {screen === 'account' && <AccountScreen onBack={() => setScreen('menu')} />}
 

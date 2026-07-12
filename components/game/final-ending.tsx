@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 interface FinalEndingProps {
   onMenu: () => void
@@ -31,15 +31,9 @@ const STORY: { text: string; image?: string }[] = [
 ]
 
 export function FinalEnding({ onMenu }: FinalEndingProps) {
+  // no auto-advance: the player flips through the story with the button
   const [step, setStep] = useState(0)
   const finished = step >= STORY.length
-
-  // slow auto-advance so the ending feels like credits
-  useEffect(() => {
-    if (finished) return
-    const t = setTimeout(() => setStep((s) => s + 1), 3500)
-    return () => clearTimeout(t)
-  }, [step, finished])
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[#1a1a2e]/95 px-8 text-center">

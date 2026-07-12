@@ -29,7 +29,6 @@ import {
   NUKE_DAMAGE,
   PILL_COST,
   PLAYER_UNITS,
-  RADIATION_DURATION_S,
   SUPER_UNITS,
   type LevelConfig,
   type UnitType,
@@ -190,6 +189,7 @@ export function Battlefield({
     radiation: ReturnType<typeof createLoop>
     nuke: ReturnType<typeof createLoop>
     miniDriggert: ReturnType<typeof createLoop>
+    baseExplosion: ReturnType<typeof createLoop>
   } | null>(null)
   if (loopsRef.current === null) {
     loopsRef.current = {
@@ -200,6 +200,8 @@ export function Battlefield({
       nuke: createLoop('nuke', 0.9, false),
       // little evil Driggert clone talks non-stop while alive
       miniDriggert: createLoop('voice-driggert-clone', 0.8),
+      // base explosion: one-shot but stoppable so quitting cuts it off
+      baseExplosion: createLoop('base-explosion', 0.8, false),
     }
   }
   /** is the mini Driggert voice loop currently playing */
@@ -211,6 +213,7 @@ export function Battlefield({
     loops?.radiation.stop()
     loops?.nuke.stop()
     loops?.miniDriggert.stop()
+    loops?.baseExplosion.stop()
     miniDriggertVoiceOnRef.current = false
   }, [])
   useEffect(() => {
@@ -454,6 +457,8 @@ export function Battlefield({
             vadim.status = 'driving'
             markCharacterMet('evil-vadim')
             loopsRef.current?.car.start()
+            // Vadim's voice at full volume so it's actually audible over the engine
+            playFile('voice-zloy-vadim', 1.0)
           }
           if (vadim.status === 'driving') {
             vadim.x -= 11 * dt
@@ -463,8 +468,9 @@ export function Battlefield({
               loopsRef.current?.nuke.start()
               s.playerBaseHp -= NUKE_DAMAGE
               boss.nukeExplosionUntil = Date.now() + 2200
-              boss.radiationUntilS = elapsed + RADIATION_DURATION_S
-              // radiation hiss right after the nuke blast
+              // radiation never ends — it burns until victory, defeat or quit
+              boss.radiationUntilS = Number.POSITIVE_INFINITY
+              // radiation hiss right after the nuke blast, looping forever
               setTimeout(() => loopsRef.current?.radiation.start(), 2300)
             }
           }
@@ -478,9 +484,6 @@ export function Battlefield({
               if (f.side === 'player') f.hp -= 3 * dt
               else f.hp = Math.min(f.maxHp, f.hp + 2 * dt) // radiation heals enemies
             }
-          } else if (boss.radiationUntilS > 0 && elapsed >= boss.radiationUntilS) {
-            loopsRef.current?.radiation.stop()
-            boss.radiationUntilS = 0
           }
 
           // --- Tupichkina falls from the sky (once per level) ---
@@ -615,15 +618,15 @@ export function Battlefield({
         const bossDefeated = config.chaos && bossRef.current.spawned && bossRef.current.hp <= 0
         if ((config.chaos ? bossDefeated : s.enemyBaseHp <= 0) && s.result === 'playing') {
           s.result = 'victory'
-          s.explosion = 'enemy'
-          if (config.chaos) playSound('explosion')
-          else playFile('base-explosion', 0.8)
+            s.explosion = 'enemy'
+            if (config.chaos) playSound('explosion')
+            else loopsRef.current?.baseExplosion.start()
           stopAllBossSounds()
         } else if (s.playerBaseHp <= 0 && s.result === 'playing') {
           s.result = 'defeat'
-          s.explosion = 'player'
-          if (config.chaos) playSound('explosion')
-          else playFile('base-explosion', 0.8)
+            s.explosion = 'player'
+            if (config.chaos) playSound('explosion')
+            else loopsRef.current?.baseExplosion.start()
           stopAllBossSounds()
         }
 
@@ -665,10 +668,11 @@ export function Battlefield({
       s.playerBaseHp = Math.min(s.playerMaxHp, s.playerBaseHp + HEAL_CAN_VALUE)
       text = `+${Math.max(0, Math.round(healed))} HP`
     } else {
-      // Level 6 pays out x3 per can; level 7 («67») pays out x2
-      const value =
+      // Level 6 pays x3 per can; level 7 («67») pays x2; endless pays x1.5
+      const value = Math.round(
         (can.kind === 'shiza' ? CAN_SHIZA_VALUE : CAN_DED_VALUE) *
-        (config.chaos ? 3 : config.sixtySeven ? 2 : 1)
+          (config.chaos ? 3 : config.sixtySeven ? 2 : config.endless ? 1.5 : 1),
+      )
       s.currency += value
       matchStatsRef.current.currencyEarned += value
       text = `+${value}`
@@ -905,6 +909,9 @@ export function Battlefield({
                 : `Волна ${waveRef.current.wave} пережита! Следующая...`}
             <span className="ml-2 text-muted-foreground">
               Пережито: {matchStatsRef.current.wavesSurvived}
+            </span>
+            <span className="ml-2 rounded border border-secondary bg-secondary/20 px-1.5 py-0.5 text-[10px] font-black text-secondary">
+              МОНЕТЫ x1.5
             </span>
           </div>
         ) : (

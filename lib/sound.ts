@@ -31,6 +31,14 @@ export type MusicName = 'menu-music' | 'battle-music'
 const MUSIC_KEY = 'avd-music-off'
 const SFX_KEY = 'avd-sfx-off'
 const MUSIC_VOL_KEY = 'avd-music-vol'
+const MUSIC_TRACK_KEY = 'avd-music-track'
+
+/** Music tracks the player can pick from (settings / sounds screen) */
+export const MUSIC_TRACKS = [
+  { file: 'music', name: 'MusicForGame (классика)' },
+  { file: 'music-beta-menu', name: '02. Beta Main Menu' },
+  { file: 'music-subwoofer', name: 'Subwoofer Lullaby' },
+] as const
 
 const knownMissing = new Set<string>()
 let currentMusic: HTMLAudioElement | null = null
@@ -71,6 +79,35 @@ function readMusicVolume(): number {
 
 /** User-set music volume multiplier, 0..1 (persisted) */
 let musicVolume = readMusicVolume()
+
+function readMusicTrack(): string {
+  if (typeof window === 'undefined') return 'music'
+  try {
+    const raw = localStorage.getItem(MUSIC_TRACK_KEY)
+    return raw && MUSIC_TRACKS.some((t) => t.file === raw) ? raw : 'music'
+  } catch {
+    return 'music'
+  }
+}
+
+/** Player-selected background music track (persisted) */
+let selectedTrack = readMusicTrack()
+
+export function getMusicTrack() {
+  return selectedTrack
+}
+
+/** Switch the background music to the given track and remember the choice */
+export function setMusicTrack(file: string) {
+  if (!MUSIC_TRACKS.some((t) => t.file === file)) return
+  selectedTrack = file
+  try {
+    localStorage.setItem(MUSIC_TRACK_KEY, file)
+  } catch {
+    // ignore
+  }
+  if (!musicMuted) playMusicFile(file, 0.3)
+}
 /** base volume of the currently playing track (before the user multiplier) */
 let currentBaseVolume = 0.3
 
@@ -188,7 +225,7 @@ export function playMusicFile(file: string, baseVolume = 0.3) {
  * The MusicName argument is kept for compatibility.
  */
 export function playMusic(_name?: MusicName, volume = 0.3) {
-  playMusicFile('music', volume)
+  playMusicFile(selectedTrack, volume)
 }
 
 export function stopMusic() {
