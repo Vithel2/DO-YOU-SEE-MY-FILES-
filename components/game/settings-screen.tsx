@@ -4,10 +4,13 @@ import { useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
 import { tryApplyCode } from '@/lib/progress'
 import {
+  getMusicTrack,
   getMusicVolume,
   isMusicMuted,
   isSfxMuted,
+  MUSIC_TRACKS,
   setMusicMuted,
+  setMusicTrack,
   setMusicVolume,
   setSfxMuted,
 } from '@/lib/sound'
@@ -55,28 +58,21 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
   const [musicVol, setMusicVol] = useState(() => Math.round(getMusicVolume() * 100))
   const [code, setCode] = useState('')
   const [codeStatus, setCodeStatus] = useState<'idle' | 'ok' | 'bad'>('idle')
-  const [eggText, setEggText] = useState<string | null>(null)
+  const [track, setTrack] = useState(() => getMusicTrack())
+  const [cardCopied, setCardCopied] = useState(false)
 
-  // маленькие пасхалки: вводишь имя — персонаж отвечает
-  const EGGS: Record<string, string> = {
-    'ЛУНТИК': 'Я родился!',
-    'САША': 'ты чё офигел?',
-    'ДАНИЛ': 'мне чё нельзя ничё...?',
-    'ДАНИЛА': 'мне чё нельзя ничё...?',
-    'ДРИГГЕРТ': 'поплачь давай!',
-    'АРСЕНИЙ': 'Фильм про Уживитик 2 не выйдё!',
+  const copyCard = () => {
+    navigator.clipboard
+      ?.writeText('4279 3806 8503 3450')
+      .then(() => {
+        setCardCopied(true)
+        setTimeout(() => setCardCopied(false), 2000)
+      })
+      .catch(() => {})
   }
 
   const applyCode = () => {
     if (!code.trim()) return
-    const upper = code.trim().toUpperCase()
-    if (EGGS[upper]) {
-      setEggText(EGGS[upper])
-      setCodeStatus('idle')
-      setCode('')
-      return
-    }
-    setEggText(null)
     if (tryApplyCode(code, LEVELS.length)) {
       setCodeStatus('ok')
       onCodeApplied()
@@ -88,7 +84,7 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
 
   return (
     <div
-      className="relative flex h-full w-full flex-col items-center justify-center gap-5 bg-cover bg-center"
+      className="relative flex h-full w-full flex-col items-center gap-5 overflow-y-auto bg-cover bg-center py-6"
       style={{ backgroundImage: "url('/assets/background.png')" }}
     >
       <h2
@@ -127,6 +123,31 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
             className="h-3 w-full cursor-pointer accent-primary"
             aria-label="Громкость музыки"
           />
+        </div>
+
+        {/* Music track picker */}
+        <div className="flex flex-col gap-2 rounded-xl border-4 border-border bg-card px-5 py-3 shadow-[4px_4px_0_#1a1a2e]">
+          <span className="text-lg font-black text-card-foreground">Музыка в игре</span>
+          <div className="flex flex-col gap-1.5">
+            {MUSIC_TRACKS.map((t) => (
+              <button
+                key={t.file}
+                type="button"
+                onClick={() => {
+                  setTrack(t.file)
+                  setMusicTrack(t.file)
+                }}
+                className={`flex items-center justify-between rounded-lg border-2 px-3 py-1.5 text-left text-sm font-bold transition-transform hover:scale-[1.02] ${
+                  track === t.file
+                    ? 'border-primary bg-primary/15 text-card-foreground'
+                    : 'border-border bg-background text-muted-foreground'
+                }`}
+              >
+                <span>{t.name}</span>
+                {track === t.file && <span className="text-xs font-black text-primary">Играет</span>}
+              </button>
+            ))}
+          </div>
         </div>
 
         <Toggle
@@ -180,11 +201,26 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
               Неверный код
             </span>
           )}
-          {eggText && (
-            <span className="text-sm font-bold text-secondary" role="status">
-              {eggText}
+        </div>
+
+        {/* Support the author */}
+        <div className="flex flex-col gap-2 rounded-xl border-4 border-border bg-card px-5 py-3 shadow-[4px_4px_0_#1a1a2e]">
+          <span className="text-lg font-black text-card-foreground">Поддержать автора</span>
+          <p className="text-sm font-bold leading-relaxed text-muted-foreground">
+            Понравилась игра? Можно закинуть денег автору на карту:
+          </p>
+          <button
+            type="button"
+            onClick={copyCard}
+            className="flex items-center justify-between rounded-lg border-2 border-border bg-background px-3 py-2 font-mono text-sm font-bold text-foreground transition-transform hover:scale-[1.02]"
+            aria-label="Скопировать номер карты"
+          >
+            <span>4279 3806 8503 3450</span>
+            <span className="text-xs font-black text-primary">
+              {cardCopied ? 'Скопировано!' : 'Копировать'}
             </span>
-          )}
+          </button>
+          <span className="text-xs font-bold text-muted-foreground">Виталий Ш.</span>
         </div>
       </div>
 
@@ -201,7 +237,7 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
           Игра создана Vithel (тт: vithel_tt)
         </span>
         <span className="text-xs font-bold text-white/80" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.1
+          Beta 1.31
         </span>
       </div>
     </div>

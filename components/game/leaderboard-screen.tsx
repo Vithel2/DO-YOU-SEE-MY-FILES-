@@ -13,6 +13,8 @@ const CATEGORIES: { id: LeaderboardCategory; label: string; icon: string }[] = [
   { id: 'currencyEarned', label: 'Собрано банок', icon: '/assets/can-ded.png' },
   { id: 'victories', label: 'Победитель', icon: '/assets/our-base.png' },
   { id: 'superArseniys', label: 'Таблеточный монстр', icon: '/assets/pill.png' },
+  { id: 'wavesSurvived', label: 'Пережито волн', icon: '/assets/arseniy-os.png' },
+  { id: 'shampooWins', label: 'Победы над шампунем (секретно)', icon: '/assets/shampoo.png' },
 ]
 
 export function LeaderboardScreen({ onBack }: LeaderboardScreenProps) {

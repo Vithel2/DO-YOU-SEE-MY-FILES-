@@ -128,6 +128,22 @@ export const MINI_RED_UNIT: UnitType = {
 }
 
 /**
+ * Level 6: when a mini red Arseniy dies, a little evil Driggert clone
+ * spawns in his place. He jumps non-stop (not too high) and "talks"
+ * (voice loop) until he dies.
+ */
+export const MINI_DRIGGERT_UNIT: UnitType = {
+  id: 'mini-driggert',
+  name: 'Маленький злой клон Дриггерта',
+  image: '/assets/driggert.png',
+  cost: 0,
+  hp: 35,
+  damage: 9,
+  speed: 8,
+  size: 13,
+}
+
+/**
  * Level 6 only: Driggert guard. Stands next to our base, cannot attack,
  * but has heavy armor (huge HP) and slowly heals himself.
  */
@@ -199,7 +215,7 @@ export const ENEMY_UNITS: Record<string, UnitType> = {
   /* --- Level 7 («67») enemies --- */
   'arseniy-enemy': {
     id: 'arseniy-enemy',
-    name: 'Арсений',
+    name: 'Арсений-Тренер',
     image: '/assets/enemy-arseniy.png',
     attackImage: '/assets/enemy-arseniy-attack.png',
     cost: 0,
@@ -333,9 +349,16 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
   },
   {
     id: 'arseniy-enemy',
-    name: 'Арсений',
+    name: 'Арсений-Тренер',
     image: '/assets/enemy-arseniy.png',
     description: 'Враг с уровня 67. В атаке хватает мяч!',
+    side: 'enemy',
+  },
+  {
+    id: 'mini-driggert',
+    name: 'Маленький злой клон Дриггерта',
+    image: '/assets/driggert.png',
+    description: 'Вылезает из погибшего мини Арсения. Прыгает без остановки и болтает!',
     side: 'enemy',
   },
   {
@@ -350,6 +373,13 @@ export const GALLERY_CHARACTERS: GalleryCharacter[] = [
     name: 'Виталик',
     image: '/assets/vitalik.png',
     description: 'Шесть-семь! Крепкий боец уровня 67.',
+    side: 'enemy',
+  },
+  {
+    id: 'shampoo',
+    name: 'ШАМПУНЬ',
+    image: '/assets/shampoo.png',
+    description: 'СЕКРЕТНО. Гонится за Сашей, чтобы помыть его. Не остановится НИКОГДА.',
     side: 'enemy',
   },
 ]
@@ -372,6 +402,8 @@ export interface LevelConfig {
   chaos?: boolean
   /** Level 7 «67»: secret level with its own song, unlocked only by code */
   sixtySeven?: boolean
+  /** Endless mode: survive waves of enemies, no victory — only a waves record */
+  endless?: boolean
 }
 
 export const LEVELS: LevelConfig[] = [
@@ -468,7 +500,28 @@ export const LEVELS: LevelConfig[] = [
     firstSpawnDelayMs: 3000,
     sixtySeven: true,
   },
+  {
+    level: 8,
+    name: 'Бесконечный режим',
+    playerBaseHp: 500,
+    // enemy base is invincible in endless mode — you can only survive
+    enemyBaseHp: 999999,
+    enemyPool: [
+      { id: 'danil', weight: 3 },
+      { id: 'luntik', weight: 2 },
+      { id: 'sasha', weight: 2 },
+      { id: 'driggert', weight: 1 },
+    ],
+    spawnIntervalMs: 999999,
+    firstSpawnDelayMs: 999999,
+    endless: true,
+  },
 ]
+
+/** Endless mode: enemy ids that join the waves as they grow */
+export const ENDLESS_LATE_ENEMIES = ['arseniy-enemy', 'varya', 'vitalik']
+/** Pause between endless waves, seconds */
+export const ENDLESS_WAVE_PAUSE_S = 5
 
 export const CAN_DED_VALUE = 5
 export const CAN_SHIZA_VALUE = 10
@@ -477,6 +530,10 @@ export const CAN_FALL_DURATION_MS = 4500
 export const CAN_GROUND_LIFETIME_MS = 4000
 export const AD_REWARD = 50
 export const AD_COOLDOWN_MS = 45000
+/** The new ad video is 3:21 long — reward becomes available after 10s of watching */
+export const AD_MIN_WATCH_S = 10
+/** Reward for watching the whole 3:21 ad (321!) + a free pill as a bonus */
+export const AD_FULL_REWARD = 321
 /** Cost of buying the pill itself */
 export const PILL_COST = 15
 /** Reward from the "Помощь" plashka ad on level 2+ */

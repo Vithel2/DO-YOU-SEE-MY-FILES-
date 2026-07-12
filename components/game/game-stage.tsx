@@ -63,6 +63,8 @@ export function GameStage({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // Classic look: uniform scale with dark side bars, like Beta 1.1.
+  // Characters keep their exact proportions on every screen.
   return (
     <div className="flex h-dvh w-full items-center justify-center overflow-hidden bg-[#1a1a2e]">
       <div

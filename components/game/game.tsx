@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { LEVELS } from '@/lib/game-data'
 import { getMaxUnlockedLevel, setMaxUnlockedLevel } from '@/lib/progress'
 import { playMusic, playMusicFile, playSound } from '@/lib/sound'
 import { AccountScreen } from './account-screen'
@@ -13,7 +12,12 @@ import { GameStage } from './game-stage'
 import { LeaderboardScreen } from './leaderboard-screen'
 import { LevelsScreen } from './levels-screen'
 import { MainMenu } from './main-menu'
+import { NewsScreen } from './news-screen'
+import { PvpBattlefield } from './pvp-battlefield'
+import { PvpLobby } from './pvp-lobby'
 import { SettingsScreen } from './settings-screen'
+import { ShampooLevel } from './shampoo-level'
+import { SoundsScreen } from './sounds-screen'
 
 type Screen =
   | 'menu'
@@ -22,6 +26,10 @@ type Screen =
   | 'settings'
   | 'account'
   | 'leaders'
+  | 'sounds'
+  | 'news'
+  | 'pvp-lobby'
+  | 'pvp-playing'
   | 'playing'
   | 'ended'
   | 'finale'
@@ -33,15 +41,18 @@ export function Game() {
   const [tutorialSeen, setTutorialSeen] = useState(false)
   const [result, setResult] = useState<'victory' | 'defeat'>('victory')
   const [battleKey, setBattleKey] = useState(0)
+  const [pvpMatchId, setPvpMatchId] = useState<string | null>(null)
 
   // restore saved progress on the device
   useEffect(() => {
     setMaxLevel(getMaxUnlockedLevel())
   }, [])
 
-  // background music per screen; level 7 has its own song (a bit quieter)
+  // background music per screen; level 7 has its own song (a bit quieter);
+  // the secret horror level 9 manages its own creepy silence
   useEffect(() => {
     if (screen === 'playing' && level === 7) playMusicFile('level7-song', 0.18)
+    else if (screen === 'playing' && level === 9) return
     else playMusic('menu-music')
   }, [screen, level])
 
@@ -65,7 +76,7 @@ export function Game() {
     (r: 'victory' | 'defeat') => {
       setResult(r)
       playSound(r === 'victory' ? 'victory' : 'defeat')
-      // Level 7 is secret: it never unlocks by progression, only by code
+      // Levels 7 (secret) and 8 (endless) never unlock the next level
       if (r === 'victory' && level < 6) {
         const next = level + 1
         setMaxLevel((m) => Math.max(m, next))
@@ -92,6 +103,35 @@ export function Game() {
             onSettings={() => setScreen('settings')}
             onAccount={() => setScreen('account')}
             onLeaders={() => setScreen('leaders')}
+            onSounds={() => setScreen('sounds')}
+            onNews={() => setScreen('news')}
+            onPvp={() => setScreen('pvp-lobby')}
+          />
+        )}
+
+        {screen === 'sounds' && <SoundsScreen onBack={() => setScreen('menu')} />}
+
+        {screen === 'news' && <NewsScreen onBack={() => setScreen('menu')} />}
+
+        {screen === 'pvp-lobby' && (
+          <PvpLobby
+            onBack={() => setScreen('menu')}
+            onAccount={() => setScreen('account')}
+            onStartMatch={(matchId) => {
+              setPvpMatchId(matchId)
+              setScreen('pvp-playing')
+            }}
+          />
+        )}
+
+        {screen === 'pvp-playing' && pvpMatchId && (
+          <PvpBattlefield
+            key={pvpMatchId}
+            matchId={pvpMatchId}
+            onExit={() => {
+              setPvpMatchId(null)
+              setScreen('pvp-lobby')
+            }}
           />
         )}
 
@@ -116,7 +156,11 @@ export function Game() {
           />
         )}
 
-        {(screen === 'playing' || screen === 'ended' || screen === 'finale') && (
+        {screen === 'playing' && level === 9 && (
+          <ShampooLevel key={battleKey} onQuit={() => setScreen('menu')} />
+        )}
+
+        {(screen === 'playing' || screen === 'ended' || screen === 'finale') && level !== 9 && (
           <div className="relative h-full w-full">
             <Battlefield
               key={battleKey}
@@ -130,7 +174,7 @@ export function Game() {
               <EndScreen
                 result={result}
                 level={level}
-                hasNextLevel={level < LEVELS.length}
+                hasNextLevel={level < 6}
                 onRetry={() => startLevel(level)}
                 onNextLevel={() => startLevel(level + 1)}
                 onMenu={() => setScreen('menu')}
