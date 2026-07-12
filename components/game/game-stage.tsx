@@ -63,15 +63,26 @@ export function GameStage({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Stretch to fill the whole window: X and Y scale independently so there
-  // are no dark side bars. The stretch is mild on typical screens.
+  // Fill the window but keep characters looking right: each axis may stretch
+  // at most 8% beyond the uniform scale. On very wide screens the small
+  // leftover is filled with the game's sky/grass colors instead of dark bars.
+  const uniform = Math.min(stage.viewportW / STAGE_W, stage.viewportH / STAGE_H)
+  const maxStretch = uniform * 1.08
+  const scaleX = Math.min(stage.viewportW / STAGE_W, maxStretch)
+  const scaleY = Math.min(stage.viewportH / STAGE_H, maxStretch)
+
   return (
-    <div className="flex h-dvh w-full items-center justify-center overflow-hidden bg-[#1a1a2e]">
+    <div
+      className="flex h-dvh w-full items-center justify-center overflow-hidden"
+      style={{
+        background: 'linear-gradient(to bottom, #59c1f0 0%, #59c1f0 62%, #2e9e44 62%, #2e9e44 100%)',
+      }}
+    >
       <div
         style={{
           width: STAGE_W,
           height: STAGE_H,
-          transform: `scale(${stage.viewportW / STAGE_W}, ${stage.viewportH / STAGE_H})`,
+          transform: `scale(${scaleX}, ${scaleY})`,
           transformOrigin: 'center center',
           flexShrink: 0,
         }}

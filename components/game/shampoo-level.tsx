@@ -43,6 +43,12 @@ type Phase = 'intro' | 'running' | 'cutscene' | 'victory' | 'defeat'
 export function ShampooLevel({ onQuit }: ShampooLevelProps) {
   const [phase, setPhase] = useState<Phase>('intro')
   const [, forceRender] = useState(0)
+  const [isTouch, setIsTouch] = useState(false)
+
+  // detect touch devices so phone players always get on-screen buttons
+  useEffect(() => {
+    setIsTouch(window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window)
+  }, [])
 
   const stateRef = useRef({
     sashaX: SASHA_START_X,
@@ -68,10 +74,18 @@ export function ShampooLevel({ onQuit }: ShampooLevelProps) {
   const ambienceRef = useRef<ReturnType<typeof createLoop> | null>(null)
   if (ambienceRef.current === null) ambienceRef.current = createLoop('radiation', 0.25)
 
+  // stoppable one-shot explosion so quitting mid-blast cuts the sound off
+  const explosionRef = useRef<ReturnType<typeof createLoop> | null>(null)
+  if (explosionRef.current === null) explosionRef.current = createLoop('base-explosion', 0.8, false)
+
   useEffect(() => {
     stopMusic()
     const amb = ambienceRef.current
-    return () => amb?.stop()
+    const boom = explosionRef.current
+    return () => {
+      amb?.stop()
+      boom?.stop()
+    }
   }, [])
 
   const sendResult = useCallback((won: boolean) => {
@@ -177,7 +191,7 @@ export function ShampooLevel({ onQuit }: ShampooLevelProps) {
           }
           if (t > 2.1) {
             s.shampooDead = true
-            playFile('base-explosion', 0.8)
+            explosionRef.current?.start()
           }
         } else if (s.elapsed - s.cutsceneAt > 3.4) {
           setPhase('victory')
@@ -417,16 +431,18 @@ export function ShampooLevel({ onQuit }: ShampooLevelProps) {
         </div>
       )}
 
-      {/* touch controls */}
-      {phase === 'running' && (
-        <div className="absolute bottom-14 left-0 right-0 z-20 flex justify-between px-6 md:hidden">
+      {/* touch controls — shown on any touch device (md:hidden failed on
+          landscape phones because their viewport is wider than 768px) */}
+      {phase === 'running' && isTouch && (
+        <div className="absolute bottom-16 left-0 right-0 z-20 flex justify-between px-8">
           {(['left', 'right'] as const).map((side) => (
             <button
               key={side}
               type="button"
               aria-label={side === 'left' ? 'Бежать налево' : 'Бежать направо'}
-              className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/30 bg-white/10 text-3xl font-black text-white/80 active:bg-white/25"
-              onPointerDown={() => {
+              className="flex h-20 w-20 touch-none select-none items-center justify-center rounded-full border-2 border-white/40 bg-white/15 text-4xl font-black text-white/90 active:bg-white/30"
+              onPointerDown={(e) => {
+                e.preventDefault()
                 heldRef.current[side] = true
               }}
               onPointerUp={() => {
@@ -435,6 +451,10 @@ export function ShampooLevel({ onQuit }: ShampooLevelProps) {
               onPointerLeave={() => {
                 heldRef.current[side] = false
               }}
+              onPointerCancel={() => {
+                heldRef.current[side] = false
+              }}
+              onContextMenu={(e) => e.preventDefault()}
             >
               {side === 'left' ? '<' : '>'}
             </button>
