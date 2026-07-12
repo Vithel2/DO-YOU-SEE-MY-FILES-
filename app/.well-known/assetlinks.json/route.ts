@@ -1,0 +1,23 @@
+export const dynamic = 'force-static'
+
+/**
+ * Digital Asset Links for the Android TWA (APK) build.
+ * Google Play / Android verifies this file to open the game
+ * full-screen without the browser address bar.
+ */
+export function GET() {
+  const assetLinks = [
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'app.vercel.do_you_see_my_files.twa',
+        sha256_cert_fingerprints: [
+          'FA:3D:D6:63:75:88:E8:CC:0F:CD:1F:32:C7:6F:67:5C:AA:9A:CB:BD:00:FF:9D:2D:F1:FB:92:60:BA:11:DA:67',
+        ],
+      },
+    },
+  ]
+
+  return Response.json(assetLinks)
+}
