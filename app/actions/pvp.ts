@@ -131,6 +131,21 @@ export async function findMatch(): Promise<JoinResult> {
   if (!me) return { ok: false, error: 'Нужен аккаунт' }
   const myElo = await ensureRating(me.id)
 
+  // did someone already join my queue entry while I was polling?
+  const started = await db
+    .select({ id: pvpMatches.id })
+    .from(pvpMatches)
+    .where(
+      and(
+        eq(pvpMatches.status, 'playing'),
+        or(eq(pvpMatches.hostId, me.id), eq(pvpMatches.guestId, me.id)),
+        sql`${pvpMatches.startedAt} > now() - interval '30 seconds'`,
+      ),
+    )
+    .orderBy(desc(pvpMatches.startedAt))
+    .limit(1)
+  if (started[0]) return { ok: true, matchId: started[0].id, started: true }
+
   // do I already have a waiting queue entry? (repeated call = keep waiting)
   const mine = await db
     .select({ id: pvpMatches.id })

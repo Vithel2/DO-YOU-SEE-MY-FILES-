@@ -55,7 +55,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
 
   /* --- matchmaking loop --- */
   const startSearch = useCallback(() => {
-    playSound('mouseclick')
+    playSound('click')
     setError('')
     setShowExit(false)
     setView('searching')
@@ -103,7 +103,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
   }, [onStartMatch])
 
   const stopSearch = useCallback(() => {
-    playSound('mouseclick')
+    playSound('click')
     stoppedRef.current = true
     if (matchIdRef.current) cancelSearch(matchIdRef.current)
     matchIdRef.current = null
@@ -113,7 +113,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
   /* --- hosting loop (room waiting for a friend) --- */
   const hostRoom = useCallback(
     async (isPublic: boolean) => {
-      playSound('mouseclick')
+      playSound('click')
       setBusy(true)
       setError('')
       const res = await createRoom(isPublic)
@@ -151,7 +151,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
   )
 
   const closeRoom = useCallback(() => {
-    playSound('mouseclick')
+    playSound('click')
     stoppedRef.current = true
     if (matchIdRef.current) cancelSearch(matchIdRef.current)
     matchIdRef.current = null
@@ -182,7 +182,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
 
   const enterRoom = useCallback(
     async (code: string) => {
-      playSound('mouseclick')
+      playSound('click')
       setBusy(true)
       setError('')
       const res = await joinRoom(code)
@@ -336,7 +336,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
         <button
           type="button"
           onClick={() => {
-            playSound('mouseclick')
+            playSound('click')
             setView('main')
           }}
           className="rounded-xl border-4 border-border bg-card px-8 py-3 text-xl font-black text-card-foreground shadow-[4px_4px_0_#1a1a2e] transition-transform hover:scale-105"
@@ -384,7 +384,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
             <button
               type="button"
               onClick={() => {
-                playSound('mouseclick')
+                playSound('click')
                 setError('')
                 setView('main')
               }}
@@ -463,7 +463,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
           <button
             type="button"
             onClick={() => {
-              playSound('mouseclick')
+              playSound('click')
               setError('')
               setView('code')
             }}
@@ -474,7 +474,7 @@ export function PvpLobby({ onBack, onAccount, onStartMatch }: PvpLobbyProps) {
           <button
             type="button"
             onClick={() => {
-              playSound('mouseclick')
+              playSound('click')
               setError('')
               setView('rooms')
             }}
