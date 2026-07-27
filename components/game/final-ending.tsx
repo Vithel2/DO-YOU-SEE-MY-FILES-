@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { isGameRated } from '@/lib/progress'
+import { RatePrompt } from './rate-prompt'
 
 interface FinalEndingProps {
   onMenu: () => void
@@ -34,6 +36,15 @@ export function FinalEnding({ onMenu }: FinalEndingProps) {
   // no auto-advance: the player flips through the story with the button
   const [step, setStep] = useState(0)
   const finished = step >= STORY.length
+
+  // ask for a RuStore review right after the ending, but only once ever
+  const [showRate, setShowRate] = useState(false)
+  useEffect(() => {
+    if (finished && !isGameRated()) {
+      const t = setTimeout(() => setShowRate(true), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [finished])
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[#1a1a2e]/95 px-8 text-center">
@@ -87,6 +98,8 @@ export function FinalEnding({ onMenu }: FinalEndingProps) {
           </button>
         </>
       )}
+
+      {showRate && <RatePrompt onClose={() => setShowRate(false)} />}
     </div>
   )
 }
