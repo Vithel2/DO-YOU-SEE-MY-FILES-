@@ -299,7 +299,7 @@ export function MainMenu({
 
       <div className="pointer-events-none absolute bottom-1 right-2 z-10 flex flex-col items-end">
         <span className="text-xs font-black text-white/90" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.31
+          Beta 1.4
         </span>
         <span className="text-[10px] font-bold text-white/70" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
           by Vithel (тт: vithel_tt)

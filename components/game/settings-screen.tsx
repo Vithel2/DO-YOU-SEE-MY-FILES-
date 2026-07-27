@@ -257,7 +257,7 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
           Игра создана Vithel (тт: vithel_tt)
         </span>
         <span className="text-xs font-bold text-white/80" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.31
+          Beta 1.4
         </span>
       </div>
     </div>

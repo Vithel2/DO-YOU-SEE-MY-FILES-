@@ -7,8 +7,17 @@ interface NewsScreenProps {
 /** Changelog shown on the "Новости" screen — newest first */
 const NEWS: { version: string; date: string; items: string[] }[] = [
   {
-    version: 'Beta 1.31',
+    version: 'Beta 1.4',
     date: 'Сегодня',
+    items: [
+      'Экран больше не гаснет во время боя — можно спокойно защищать будку',
+      'Появилась кнопка «Оценить игру» в настройках и после финала',
+      'Мелкие улучшения стабильности',
+    ],
+  },
+  {
+    version: 'Beta 1.31',
+    date: 'Ранее',
     items: [
       'ТАБЛЕТКА теперь доступна в PVP! Купи её — следующий Арсений станет СУПЕР',
       'Банки в PVP падают всё чаще и чаще по ходу матча',

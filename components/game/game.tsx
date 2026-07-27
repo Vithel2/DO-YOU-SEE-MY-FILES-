@@ -48,6 +48,37 @@ export function Game() {
     setMaxLevel(getMaxUnlockedLevel())
   }, [])
 
+  // keep the phone screen awake while a battle is running, so it never dims
+  // in the middle of a fight (re-acquired when the app returns to foreground)
+  useEffect(() => {
+    const inBattle = screen === 'playing' || screen === 'pvp-playing'
+    if (!inBattle || typeof navigator === 'undefined' || !('wakeLock' in navigator)) return
+
+    let lock: WakeLockSentinel | null = null
+    let cancelled = false
+
+    const acquire = async () => {
+      try {
+        lock = await navigator.wakeLock.request('screen')
+      } catch {
+        // denied or unsupported — the game still plays fine
+      }
+    }
+
+    const onVisible = () => {
+      if (!cancelled && document.visibilityState === 'visible') void acquire()
+    }
+
+    void acquire()
+    document.addEventListener('visibilitychange', onVisible)
+
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+      void lock?.release().catch(() => {})
+    }
+  }, [screen])
+
   // background music per screen; level 7 has its own song (a bit quieter);
   // the secret horror level 9 manages its own creepy silence
   useEffect(() => {
