@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { LEVELS } from '@/lib/game-data'
-import { tryApplyCode } from '@/lib/progress'
+import { markGameRated, RUSTORE_URL, tryApplyCode } from '@/lib/progress'
 import {
   getMusicTrack,
   getMusicVolume,
@@ -203,6 +203,26 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
           )}
         </div>
 
+        {/* Rate the game in RuStore */}
+        <div className="flex flex-col gap-2 rounded-xl border-4 border-border bg-card px-5 py-3 shadow-[4px_4px_0_#1a1a2e]">
+          <span className="text-lg font-black text-card-foreground">Оценить игру</span>
+          <p className="text-sm font-bold leading-relaxed text-muted-foreground">
+            Поставь оценку в RuStore — это очень помогает игре и займёт 10 секунд!
+          </p>
+          <a
+            href={RUSTORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={markGameRated}
+            className="flex items-center justify-center gap-2 rounded-lg border-2 border-border bg-primary px-4 py-2.5 text-base font-black text-primary-foreground shadow-[3px_3px_0_#1a1a2e] transition-transform hover:scale-[1.02]"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+              <path d="M12 2l2.9 6.3 6.9.8-5 4.7 1.3 6.8L12 17.3 5.9 20.6 7.2 13.8l-5-4.7 6.9-.8L12 2z" />
+            </svg>
+            ОЦЕНИТЬ В RUSTORE
+          </a>
+        </div>
+
         {/* Support the author */}
         <div className="flex flex-col gap-2 rounded-xl border-4 border-border bg-card px-5 py-3 shadow-[4px_4px_0_#1a1a2e]">
           <span className="text-lg font-black text-card-foreground">Поддержать автора</span>
@@ -237,7 +257,7 @@ export function SettingsScreen({ onBack, onCodeApplied }: SettingsScreenProps) {
           Игра создана Vithel (тт: vithel_tt)
         </span>
         <span className="text-xs font-bold text-white/80" style={{ textShadow: '1px 1px 0 #1a1a2e' }}>
-          Beta 1.31
+          Beta 1.4
         </span>
       </div>
     </div>

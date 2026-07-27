@@ -52,6 +52,31 @@ export function setMaxUnlockedLevel(level: number) {
   }
 }
 
+/* --- RuStore rating request --- */
+
+const RATED_KEY = 'avd-rated'
+
+export const RUSTORE_URL = 'https://rustore.ru/catalog/app/com.vithel.arseniyvsdruzya'
+
+/** True once the player pressed «Оценить» — we never nag them again. */
+export function isGameRated(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(RATED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markGameRated() {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(RATED_KEY, '1')
+  } catch {
+    // storage unavailable — ignore
+  }
+}
+
 /* --- Secret dev code (never mentioned anywhere in the game UI) --- */
 
 const DEV_KEY = 'avd-dev'
